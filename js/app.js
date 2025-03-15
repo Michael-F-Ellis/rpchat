@@ -184,14 +184,12 @@ function createMessageElement(message) {
 	const controlsEl = document.createElement('div');
 	controlsEl.className = 'message-controls';
 
-	if (message.role === 'assistant') {
-		const editBtn = document.createElement('button');
-		editBtn.className = 'edit-message';
-		editBtn.textContent = 'Edit';
-		editBtn.addEventListener('click', () => startEditing(message.id));
+	const editBtn = document.createElement('button');
+	editBtn.className = 'edit-message';
+	editBtn.textContent = 'Edit';
+	editBtn.addEventListener('click', () => startEditing(message.id));
 
-		controlsEl.appendChild(editBtn);
-	}
+	controlsEl.appendChild(editBtn);
 
 	messageEl.appendChild(controlsEl);
 
