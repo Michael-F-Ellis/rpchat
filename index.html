@@ -16,10 +16,18 @@
 				<input type="password" id="api-key" placeholder="Enter Together.ai API Key">
 				<button id="save-key">Save Key</button>
 			</div>
+			<div class="settings-group">
+				<label for="api-provider">API Provider:</label>
+				<select id="api-provider">
+					<option value="together">Together.ai</option>
+					<option value="deepseek">DeepSeek</option>
+				</select>
+			</div>
 			<div class="model-selector">
 				<select id="model-selector">
 					<option value="deepseek-ai/DeepSeek-V3">DeepSeek V3</option>
 					<option value="meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo">Llama 3.1 405B</option>
+					<option value="deepseek-chat">deepseek-chat</option>
 				</select>
 			</div>
 		</header>

@@ -6,6 +6,7 @@ const chatHistory = document.getElementById('chat-history');
 const userInput = document.getElementById('user-input');
 const sendButton = document.getElementById('send-button');
 const statusMessage = document.getElementById('status-message');
+const apiProviderSelector = document.getElementById('api-provider');
 
 // System message that sets the context for the AI
 const SYSTEM_MESSAGE = {
@@ -50,12 +51,22 @@ Forbidden Elements
 };
 
 // State
-let apiKey = localStorage.getItem('togetherApiKey') || '';
+let togetherApiKey = localStorage.getItem('togetherApiKey') || '';
+let deepseekApiKey = localStorage.getItem('deepseekApiKey') || '';
+let apiKey = togetherApiKey; // Default to Together.ai
 let messages = [];
 let isProcessing = false;
 
 // Initialize app
 function init() {
+	// Load the appropriate API key based on selected provider
+	apiProviderSelector.addEventListener('change', updateApiKeyDisplay);
+
+	// Load saved provider preference if available
+	const savedProvider = localStorage.getItem('apiProvider') || 'together';
+	apiProviderSelector.value = savedProvider;
+	updateApiKeyDisplay();
+
 	if (apiKey) {
 		apiKeyInput.value = '********'; // Don't show the actual key for security
 		statusMessage.textContent = 'API key loaded from storage';
@@ -79,19 +90,47 @@ function init() {
 	});
 }
 
+function updateApiKeyDisplay() {
+	const provider = apiProviderSelector.value;
+	localStorage.setItem('apiProvider', provider);
+
+	if (provider === 'together') {
+		apiKey = togetherApiKey;
+	} else {
+		apiKey = deepseekApiKey;
+	}
+
+	apiKeyInput.value = apiKey ? '********' : '';
+	statusMessage.textContent = apiKey ? `${provider.charAt(0).toUpperCase() + provider.slice(1)} API key loaded` : 'No API key set';
+}
+
 // Save API key to localStorage
 function saveApiKey() {
 	const key = apiKeyInput.value.trim();
+	const provider = apiProviderSelector.value;
+
 	if (key && key !== '********') {
+		if (provider === 'together') {
+			togetherApiKey = key;
+			localStorage.setItem('togetherApiKey', key);
+		} else {
+			deepseekApiKey = key;
+			localStorage.setItem('deepseekApiKey', key);
+		}
 		apiKey = key;
-		localStorage.setItem('togetherApiKey', apiKey);
 		apiKeyInput.value = '********';
-		showStatus('API key saved successfully', 'success');
+		showStatus(`${provider.charAt(0).toUpperCase() + provider.slice(1)} API key saved successfully`, 'success');
 	} else if (key === '') {
 		// Clear API key if empty
+		if (provider === 'together') {
+			togetherApiKey = '';
+			localStorage.removeItem('togetherApiKey');
+		} else {
+			deepseekApiKey = '';
+			localStorage.removeItem('deepseekApiKey');
+		}
 		apiKey = '';
-		localStorage.removeItem('togetherApiKey');
-		showStatus('API key removed', 'success');
+		showStatus(`${provider.charAt(0).toUpperCase() + provider.slice(1)} API key removed`, 'success');
 	}
 }
 
@@ -143,7 +182,9 @@ async function sendMessage() {
 
 // Fetch response from Together.ai API
 async function fetchAIResponse(userMessage, model) {
-	const url = 'https://api.together.xyz/v1/chat/completions';
+	const provider = apiProviderSelector.value;
+	let url;
+	let requestBody;
 
 	// Prepare messages for API - start with system message
 	const apiMessages = [
@@ -160,6 +201,27 @@ async function fetchAIResponse(userMessage, model) {
 		content: userMessage
 	});
 
+	if (provider === 'together') {
+		url = 'https://api.together.xyz/v1/chat/completions';
+		requestBody = {
+			model: model,
+			messages: apiMessages,
+			max_tokens: 1000,
+			temperature: 0.7
+		};
+	} else {
+		url = 'https://api.deepseek.com/chat/completions';
+		// Adjust the model parameter for DeepSeek
+		// You may need to update this based on DeepSeek's available models
+		requestBody = {
+			model: model, // You might need to map Together models to DeepSeek models
+			messages: apiMessages,
+			max_tokens: 1000,
+			temperature: 0.7
+			// Add any DeepSeek-specific parameters here
+		};
+	}
+
 	try {
 		const response = await fetch(url, {
 			method: 'POST',
@@ -167,12 +229,7 @@ async function fetchAIResponse(userMessage, model) {
 				'Content-Type': 'application/json',
 				'Authorization': `Bearer ${apiKey}`
 			},
-			body: JSON.stringify({
-				model: model,
-				messages: apiMessages,
-				max_tokens: 1000,
-				temperature: 0.7
-			})
+			body: JSON.stringify(requestBody)
 		});
 
 		if (!response.ok) {
@@ -350,6 +407,40 @@ function addClearChatButton() {
 	clearBtn.textContent = 'Clear Chat';
 	clearBtn.addEventListener('click', clearChat);
 	header.appendChild(clearBtn);
+}
+
+function updateModelOptions() {
+	const provider = apiProviderSelector.value;
+	modelSelector.innerHTML = '';
+
+	if (provider === 'together') {
+		// Together.ai models
+		const togetherModels = [
+			'togethercomputer/llama-2-70b-chat',
+			'meta-llama/Llama-2-70b-chat-hf',
+			// Add other Together models
+		];
+
+		togetherModels.forEach(model => {
+			const option = document.createElement('option');
+			option.value = model;
+			option.textContent = model;
+			modelSelector.appendChild(option);
+		});
+	} else {
+		// DeepSeek models
+		const deepseekModels = [
+			'deepseek-chat',
+			// Add other DeepSeek models
+		];
+
+		deepseekModels.forEach(model => {
+			const option = document.createElement('option');
+			option.value = model;
+			option.textContent = model;
+			modelSelector.appendChild(option);
+		});
+	}
 }
 
 // Initialize the app
