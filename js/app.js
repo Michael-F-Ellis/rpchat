@@ -53,6 +53,7 @@ Forbidden Elements
 // State
 let togetherApiKey = localStorage.getItem('togetherApiKey') || '';
 let deepseekApiKey = localStorage.getItem('deepseekApiKey') || '';
+let geminiApiKey = localStorage.getItem('geminiApiKey') || '';
 let apiKey = togetherApiKey; // Default to Together.ai
 let messages = [];
 let isProcessing = false;
@@ -60,12 +61,16 @@ let isProcessing = false;
 // Initialize app
 function init() {
 	// Load the appropriate API key based on selected provider
-	apiProviderSelector.addEventListener('change', updateApiKeyDisplay);
+	apiProviderSelector.addEventListener('change', () => {
+		updateApiKeyDisplay();
+		updateModelOptions();
+	});
 
 	// Load saved provider preference if available
 	const savedProvider = localStorage.getItem('apiProvider') || 'together';
 	apiProviderSelector.value = savedProvider;
 	updateApiKeyDisplay();
+	updateModelOptions(); // Add this line to initialize models
 
 	if (apiKey) {
 		apiKeyInput.value = '********'; // Don't show the actual key for security
@@ -96,8 +101,10 @@ function updateApiKeyDisplay() {
 
 	if (provider === 'together') {
 		apiKey = togetherApiKey;
-	} else {
+	} else if (provider === 'deepseek') {
 		apiKey = deepseekApiKey;
+	} else if (provider === 'gemini') {
+		apiKey = geminiApiKey;
 	}
 
 	apiKeyInput.value = apiKey ? '********' : '';
@@ -113,9 +120,12 @@ function saveApiKey() {
 		if (provider === 'together') {
 			togetherApiKey = key;
 			localStorage.setItem('togetherApiKey', key);
-		} else {
+		} else if (provider === 'deepseek') {
 			deepseekApiKey = key;
 			localStorage.setItem('deepseekApiKey', key);
+		} else if (provider === 'gemini') {
+			geminiApiKey = key;
+			localStorage.setItem('geminiApiKey', key);
 		}
 		apiKey = key;
 		apiKeyInput.value = '********';
@@ -125,9 +135,12 @@ function saveApiKey() {
 		if (provider === 'together') {
 			togetherApiKey = '';
 			localStorage.removeItem('togetherApiKey');
-		} else {
+		} else if (provider === 'deepseek') {
 			deepseekApiKey = '';
 			localStorage.removeItem('deepseekApiKey');
+		} else if (provider === 'gemini') {
+			geminiApiKey = '';
+			localStorage.removeItem('geminiApiKey');
 		}
 		apiKey = '';
 		showStatus(`${provider.charAt(0).toUpperCase() + provider.slice(1)} API key removed`, 'success');
@@ -209,16 +222,21 @@ async function fetchAIResponse(userMessage, model) {
 			max_tokens: 1000,
 			temperature: 0.7
 		};
-	} else {
+	} else if (provider === 'deepseek') {
 		url = 'https://api.deepseek.com/chat/completions';
-		// Adjust the model parameter for DeepSeek
-		// You may need to update this based on DeepSeek's available models
 		requestBody = {
-			model: model, // You might need to map Together models to DeepSeek models
+			model: model,
 			messages: apiMessages,
 			max_tokens: 1000,
 			temperature: 0.7
-			// Add any DeepSeek-specific parameters here
+		};
+	} else if (provider === 'gemini') {
+		url = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
+		requestBody = {
+			model: model,
+			messages: apiMessages,
+			max_tokens: 1000,
+			temperature: 0.7
 		};
 	}
 
@@ -427,7 +445,7 @@ function updateModelOptions() {
 			option.textContent = model;
 			modelSelector.appendChild(option);
 		});
-	} else {
+	} else if (provider === 'deepseek') {
 		// DeepSeek models
 		const deepseekModels = [
 			'deepseek-chat',
@@ -435,6 +453,19 @@ function updateModelOptions() {
 		];
 
 		deepseekModels.forEach(model => {
+			const option = document.createElement('option');
+			option.value = model;
+			option.textContent = model;
+			modelSelector.appendChild(option);
+		});
+	} else if (provider === 'gemini') {
+		// Gemini models
+		const geminiModels = [
+			'gemini-2.5-pro-exp-03-25',
+			// Add other Gemini models as they become available
+		];
+
+		geminiModels.forEach(model => {
 			const option = document.createElement('option');
 			option.value = model;
 			option.textContent = model;
