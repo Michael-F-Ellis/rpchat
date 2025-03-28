@@ -103,6 +103,12 @@ function init() {
 	// Initialize the system prompt textarea
 	systemPromptTextarea.value = SYSTEM_MESSAGE.content;
 
+	// Set up the expanding textarea behavior
+	setupExpandingSystemPrompt();
+
+	// Set up the expanding user input behavior
+	setupExpandingUserInput();
+
 	// Add event listeners for system prompt controls
 	saveSystemPromptBtn.addEventListener('click', saveSystemPrompt);
 	resetSystemPromptBtn.addEventListener('click', resetSystemPrompt);
@@ -525,3 +531,56 @@ function resetSystemPrompt() {
 // Initialize the app
 init();
 addClearChatButton();
+
+// Add this function to your app.js file
+function setupExpandingSystemPrompt() {
+	// Store the original height
+	const originalHeight = getComputedStyle(systemPromptTextarea).height;
+
+	// Set a data attribute to store the original height for reference
+	systemPromptTextarea.dataset.originalHeight = originalHeight;
+
+	// Add focus event listener
+	systemPromptTextarea.addEventListener('focus', () => {
+		// Expand the textarea when focused
+		systemPromptTextarea.style.height = '300px';
+	});
+
+	// Add blur event listener
+	systemPromptTextarea.addEventListener('blur', () => {
+		// Return to original height when not focused
+		systemPromptTextarea.style.height = systemPromptTextarea.dataset.originalHeight;
+	});
+}
+function setupExpandingUserInput() {
+	// Store the original height
+	const originalHeight = getComputedStyle(userInput).height;
+
+	// Set a data attribute to store the original height for reference
+	userInput.dataset.originalHeight = originalHeight;
+
+	// Add focus event listener
+	userInput.addEventListener('focus', () => {
+		// Expand the textarea when focused
+		userInput.style.height = '150px'; // You can adjust this value as needed
+	});
+
+	// Add blur event listener
+	userInput.addEventListener('blur', () => {
+		// If the textarea is empty, return to original height when not focused
+		if (userInput.value.trim() === '') {
+			userInput.style.height = userInput.dataset.originalHeight;
+		}
+	});
+
+	// Add input event listener to adjust height based on content
+	userInput.addEventListener('input', () => {
+		// Make sure the height is at least the expanded height when typing
+		const minHeight = userInput.matches(':focus') ? '150px' : userInput.dataset.originalHeight;
+
+		// If there's content, keep the expanded height even when blurred
+		if (userInput.value.trim() !== '') {
+			userInput.style.height = '150px';
+		}
+	});
+}

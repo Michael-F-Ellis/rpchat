@@ -218,3 +218,18 @@ button:hover {
 #reset-system-prompt:hover {
 	background-color: #d32f2f;
 }
+
+textarea#system-prompt-textarea {
+	transition: height 0.3s ease;
+	resize: vertical;
+	min-height: 100px;
+	overflow: auto;
+}
+
+#user-input {
+	transition: height 0.3s ease;
+	resize: vertical;
+	overflow: auto;
+	min-height: 2.5em;
+	/* Set a minimum height */
+}
