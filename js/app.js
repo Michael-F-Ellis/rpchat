@@ -7,6 +7,10 @@ const userInput = document.getElementById('user-input');
 const sendButton = document.getElementById('send-button');
 const statusMessage = document.getElementById('status-message');
 const apiProviderSelector = document.getElementById('api-provider');
+const systemPromptContainer = document.getElementById('system-prompt-container');
+const systemPromptTextarea = document.getElementById('system-prompt-textarea');
+const saveSystemPromptBtn = document.getElementById('save-system-prompt');
+const resetSystemPromptBtn = document.getElementById('reset-system-prompt');
 
 // System message that sets the context for the AI
 const SYSTEM_MESSAGE = {
@@ -50,6 +54,12 @@ Forbidden Elements
 `
 };
 
+// Store the default system message for reset functionality
+const DEFAULT_SYSTEM_MESSAGE = {
+	role: 'system',
+	content: SYSTEM_MESSAGE.content
+};
+
 // State
 let togetherApiKey = localStorage.getItem('togetherApiKey') || '';
 let deepseekApiKey = localStorage.getItem('deepseekApiKey') || '';
@@ -83,6 +93,19 @@ function init() {
 		messages = JSON.parse(savedMessages);
 		renderMessages();
 	}
+
+	// Load saved system prompt if available
+	const savedSystemPrompt = localStorage.getItem('systemPrompt');
+	if (savedSystemPrompt) {
+		SYSTEM_MESSAGE.content = savedSystemPrompt;
+	}
+
+	// Initialize the system prompt textarea
+	systemPromptTextarea.value = SYSTEM_MESSAGE.content;
+
+	// Add event listeners for system prompt controls
+	saveSystemPromptBtn.addEventListener('click', saveSystemPrompt);
+	resetSystemPromptBtn.addEventListener('click', resetSystemPrompt);
 
 	// Event listeners
 	saveKeyBtn.addEventListener('click', saveApiKey);
@@ -434,8 +457,10 @@ function updateModelOptions() {
 	if (provider === 'together') {
 		// Together.ai models
 		const togetherModels = [
-			'togethercomputer/llama-2-70b-chat',
-			'meta-llama/Llama-2-70b-chat-hf',
+			'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo',
+			'mistralai/Mixtral-8x22B-Instruct-v0.1',
+			'microsoft/WizardLM-2-8x22B',
+			'Qwen/Qwen2.5-72B-Instruct-Turbo',
 			// Add other Together models
 		];
 
@@ -449,6 +474,7 @@ function updateModelOptions() {
 		// DeepSeek models
 		const deepseekModels = [
 			'deepseek-chat',
+			'deepseek-reasoner'
 			// Add other DeepSeek models
 		];
 
@@ -471,6 +497,28 @@ function updateModelOptions() {
 			option.textContent = model;
 			modelSelector.appendChild(option);
 		});
+	}
+}
+
+// Function to save the system prompt
+function saveSystemPrompt() {
+	const newPrompt = systemPromptTextarea.value.trim();
+	if (newPrompt) {
+		SYSTEM_MESSAGE.content = newPrompt;
+		localStorage.setItem('systemPrompt', newPrompt);
+		showStatus('System prompt updated successfully', 'success');
+	} else {
+		showStatus('System prompt cannot be empty', 'error');
+	}
+}
+
+// Function to reset the system prompt to default
+function resetSystemPrompt() {
+	if (confirm('Are you sure you want to reset the system prompt to default?')) {
+		SYSTEM_MESSAGE.content = DEFAULT_SYSTEM_MESSAGE.content;
+		systemPromptTextarea.value = DEFAULT_SYSTEM_MESSAGE.content;
+		localStorage.removeItem('systemPrompt');
+		showStatus('System prompt reset to default', 'success');
 	}
 }
 

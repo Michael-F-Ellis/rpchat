@@ -163,3 +163,58 @@ button:hover {
 .success {
 	color: var(--success-color);
 }
+
+.system-prompt-container {
+	margin-bottom: 15px;
+	border: 1px solid #ddd;
+	border-radius: 5px;
+	background-color: #f9f9f9;
+}
+
+.system-prompt-container summary {
+	padding: 10px;
+	cursor: pointer;
+	font-weight: bold;
+	user-select: none;
+}
+
+.system-prompt-editor {
+	padding: 10px;
+}
+
+#system-prompt-textarea {
+	width: 100%;
+	min-height: 150px;
+	margin-bottom: 10px;
+	padding: 8px;
+	border: 1px solid #ccc;
+	border-radius: 4px;
+	font-family: inherit;
+	resize: vertical;
+}
+
+.system-prompt-controls {
+	display: flex;
+	gap: 10px;
+}
+
+.system-prompt-controls button {
+	padding: 5px 10px;
+	border: none;
+	border-radius: 4px;
+	background-color: #4CAF50;
+	color: white;
+	cursor: pointer;
+}
+
+.system-prompt-controls button:hover {
+	background-color: #45a049;
+}
+
+#reset-system-prompt {
+	background-color: #f44336;
+}
+
+#reset-system-prompt:hover {
+	background-color: #d32f2f;
+}
