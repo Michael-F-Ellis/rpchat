@@ -122,6 +122,8 @@ function init() {
 			sendMessage();
 		}
 	});
+	// Call this in init() or after addClearChatButton()
+	setupImportExport();
 }
 
 function updateApiKeyDisplay() {
@@ -288,6 +290,15 @@ async function fetchAIResponse(userMessage, model) {
 		return data.choices[0].message.content;
 	} catch (error) {
 		console.error('API Error:', error);
+
+		// Enhanced error handling
+		if (error.name === 'TypeError' && error.message.includes('Failed to fetch')) {
+			showStatus('Network error. Please check your internet connection.', 'error');
+		} else if (response && response.status === 401) {
+			showStatus('Invalid API key. Please check your credentials.', 'error');
+		} else {
+			showStatus(`Error: ${error.message || 'Unknown error occurred'}`, 'error');
+		}
 		throw error;
 	}
 }
@@ -583,4 +594,72 @@ function setupExpandingUserInput() {
 			userInput.style.height = '150px';
 		}
 	});
+}
+
+function exportChat() {
+	const chatData = {
+		messages: messages,
+		systemPrompt: SYSTEM_MESSAGE.content,
+		exportDate: new Date().toISOString()
+	};
+
+	const dataStr = JSON.stringify(chatData, null, 2);
+	const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
+
+	const exportFileDefaultName = `rpchat-export-${new Date().toISOString().slice(0, 10)}.json`;
+
+	const linkElement = document.createElement('a');
+	linkElement.setAttribute('href', dataUri);
+	linkElement.setAttribute('download', exportFileDefaultName);
+	linkElement.click();
+}
+
+function setupImportExport() {
+	const header = document.querySelector('header');
+
+	const exportBtn = document.createElement('button');
+	exportBtn.id = 'export-chat';
+	exportBtn.textContent = 'Export Chat';
+	exportBtn.addEventListener('click', exportChat);
+
+	const importInput = document.createElement('input');
+	importInput.type = 'file';
+	importInput.id = 'import-input';
+	importInput.accept = '.json';
+	importInput.style.display = 'none';
+
+	const importBtn = document.createElement('button');
+	importBtn.id = 'import-chat';
+	importBtn.textContent = 'Import Chat';
+	importBtn.addEventListener('click', () => importInput.click());
+
+	importInput.addEventListener('change', (event) => {
+		const file = event.target.files[0];
+		if (file) {
+			const reader = new FileReader();
+			reader.onload = (e) => {
+				try {
+					const importedData = JSON.parse(e.target.result);
+					if (confirm('Import this chat? Current chat will be replaced.')) {
+						messages = importedData.messages || [];
+						if (importedData.systemPrompt) {
+							SYSTEM_MESSAGE.content = importedData.systemPrompt;
+							systemPromptTextarea.value = importedData.systemPrompt;
+							localStorage.setItem('systemPrompt', importedData.systemPrompt);
+						}
+						localStorage.setItem('chatHistory', JSON.stringify(messages));
+						renderMessages();
+						showStatus('Chat imported successfully', 'success');
+					}
+				} catch (error) {
+					showStatus('Error importing chat: Invalid format', 'error');
+				}
+			};
+			reader.readAsText(file);
+		}
+	});
+
+	header.appendChild(exportBtn);
+	header.appendChild(importBtn);
+	document.body.appendChild(importInput);
 }
