@@ -299,9 +299,29 @@ async function fetchAIResponse(userMessage, model) {
 		} else {
 			showStatus(`Error: ${error.message || 'Unknown error occurred'}`, 'error');
 		}
+
+		// For failed requests, remove the last user message and put it back in the input area
+		handleFailedRequest(userMessage);
+
 		throw error;
 	}
 }
+
+// New function to handle failed requests
+function handleFailedRequest(userMessage) {
+	// Remove the last message (which should be the user message that failed)
+	if (messages.length > 0 && messages[messages.length - 1].role === 'user') {
+		messages.pop();
+		localStorage.setItem('chatHistory', JSON.stringify(messages));
+		renderMessages();
+
+		// Put the message back in the input area
+		userInput.value = userMessage;
+
+		showStatus('Message removed from chat history and restored to input area', 'success');
+	}
+}
+
 // Add message to chat history
 function addMessage(role, content) {
 	const message = { role, content, id: Date.now() };
@@ -348,7 +368,23 @@ function createMessageElement(message) {
 	editBtn.textContent = 'Edit';
 	editBtn.addEventListener('click', () => startEditing(message.id));
 
+	// Add delete button
+	const deleteBtn = document.createElement('button');
+	deleteBtn.className = 'delete-message';
+	deleteBtn.textContent = 'Delete';
+	deleteBtn.addEventListener('click', () => deleteMessage(message.id));
+
+	// Add delete-from-here button (only for user messages)
+	if (message.role === 'user') {
+		const deleteFromHereBtn = document.createElement('button');
+		deleteFromHereBtn.className = 'delete-from-here';
+		deleteFromHereBtn.textContent = 'Delete From Here';
+		deleteFromHereBtn.addEventListener('click', () => deleteFromHere(message.id));
+		controlsEl.appendChild(deleteFromHereBtn);
+	}
+
 	controlsEl.appendChild(editBtn);
+	controlsEl.appendChild(deleteBtn);
 
 	messageEl.appendChild(controlsEl);
 
@@ -444,7 +480,24 @@ function resetMessageControls(messageId) {
 	editBtn.textContent = 'Edit';
 	editBtn.addEventListener('click', () => startEditing(messageId));
 
+	// Add delete button
+	const deleteBtn = document.createElement('button');
+	deleteBtn.className = 'delete-message';
+	deleteBtn.textContent = 'Delete';
+	deleteBtn.addEventListener('click', () => deleteMessage(messageId));
+
+	// Add delete-from-here button (only for user messages)
+	const message = messages.find(msg => msg.id === parseInt(messageId));
+	if (message && message.role === 'user') {
+		const deleteFromHereBtn = document.createElement('button');
+		deleteFromHereBtn.className = 'delete-from-here';
+		deleteFromHereBtn.textContent = 'Delete From Here';
+		deleteFromHereBtn.addEventListener('click', () => deleteFromHere(messageId));
+		controlsEl.appendChild(deleteFromHereBtn);
+	}
+
 	controlsEl.appendChild(editBtn);
+	controlsEl.appendChild(deleteBtn);
 }
 
 // Clear chat history
@@ -662,4 +715,71 @@ function setupImportExport() {
 	header.appendChild(exportBtn);
 	header.appendChild(importBtn);
 	document.body.appendChild(importInput);
+}// Delete a single message
+function deleteMessage(messageId) {
+	if (confirm('Are you sure you want to delete this message?')) {
+		const messageIndex = messages.findIndex(msg => msg.id === messageId);
+
+		if (messageIndex !== -1) {
+			// If deleting a user message that has an AI response right after it,
+			// also delete the AI response
+			if (
+				messages[messageIndex].role === 'user' &&
+				messageIndex + 1 < messages.length &&
+				messages[messageIndex + 1].role === 'assistant'
+			) {
+				messages.splice(messageIndex, 2); // Remove both messages
+			} else {
+				messages.splice(messageIndex, 1); // Remove just this message
+			}
+
+			// Update localStorage and UI
+			localStorage.setItem('chatHistory', JSON.stringify(messages));
+			renderMessages();
+			showStatus('Message deleted', 'success');
+		}
+	}
 }
+
+// Delete all messages from a certain point onwards
+function deleteFromHere(messageId) {
+	if (confirm('Are you sure you want to delete this message and all that follow?')) {
+		const messageIndex = messages.findIndex(msg => msg.id === messageId);
+
+		if (messageIndex !== -1) {
+			messages = messages.slice(0, messageIndex);
+			localStorage.setItem('chatHistory', JSON.stringify(messages));
+			renderMessages();
+			showStatus('Messages deleted', 'success');
+		}
+	}
+}
+
+// Create a helper function to generate message control buttons
+function createMessageControlButtons(messageId, controlsEl) {
+	// Add edit button
+	const editBtn = document.createElement('button');
+	editBtn.className = 'edit-message';
+	editBtn.textContent = 'Edit';
+	editBtn.addEventListener('click', () => startEditing(messageId));
+	controlsEl.appendChild(editBtn);
+
+	// Add delete button
+	const deleteBtn = document.createElement('button');
+	deleteBtn.className = 'delete-message';
+	deleteBtn.textContent = 'Delete';
+	deleteBtn.addEventListener('click', () => deleteMessage(messageId));
+	controlsEl.appendChild(deleteBtn);
+
+	// Add delete-from-here button (only for user messages)
+	const message = messages.find(msg => msg.id === parseInt(messageId));
+	if (message && message.role === 'user') {
+		const deleteFromHereBtn = document.createElement('button');
+		deleteFromHereBtn.className = 'delete-from-here';
+		deleteFromHereBtn.textContent = 'Delete From Here';
+		deleteFromHereBtn.addEventListener('click', () => deleteFromHere(messageId));
+		controlsEl.appendChild(deleteFromHereBtn);
+	}
+
+}
+
