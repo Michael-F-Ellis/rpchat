@@ -234,27 +234,32 @@ textarea#system-prompt-textarea {
 	/* Set a minimum height */
 }
 
-.delete-message,
-.delete-from-here {
-	background-color: #ff4d4d;
-	color: white;
-	border: none;
-	border-radius: 4px;
-	padding: 4px 8px;
-	margin-left: 5px;
+button.icon-button {
+	background: transparent;
+	border: 2px solid;
 	cursor: pointer;
-	font-size: 12px;
+	font-size: 1.2rem;
+	padding: 5px;
+	border-radius: 4px;
+	transition: background-color 0.2s, border-color 0.2s;
 }
 
-.delete-message:hover,
-.delete-from-here:hover {
-	background-color: #e60000;
+.icon-button:hover {
+	background-color: rgba(66, 133, 244, 0.1);
+	/* Light blue background on hover */
 }
 
-.delete-from-here {
-	background-color: #ff8533;
+button.edit-message {
+	background-color: #f9fbfc;
+	border-color: #000000;
 }
 
-.delete-from-here:hover {
-	background-color: #e67300;
+button.delete-message {
+	background-color: #f7f6f1;
+	border-color: #000000;
+}
+
+button.delete-from-here {
+	background-color: #f7f2f1;
+	border-color: #000000;
 }

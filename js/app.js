@@ -363,28 +363,7 @@ function createMessageElement(message) {
 	const controlsEl = document.createElement('div');
 	controlsEl.className = 'message-controls';
 
-	const editBtn = document.createElement('button');
-	editBtn.className = 'edit-message';
-	editBtn.textContent = 'Edit';
-	editBtn.addEventListener('click', () => startEditing(message.id));
-
-	// Add delete button
-	const deleteBtn = document.createElement('button');
-	deleteBtn.className = 'delete-message';
-	deleteBtn.textContent = 'Delete';
-	deleteBtn.addEventListener('click', () => deleteMessage(message.id));
-
-	// Add delete-from-here button (only for user messages)
-	if (message.role === 'user') {
-		const deleteFromHereBtn = document.createElement('button');
-		deleteFromHereBtn.className = 'delete-from-here';
-		deleteFromHereBtn.textContent = 'Delete From Here';
-		deleteFromHereBtn.addEventListener('click', () => deleteFromHere(message.id));
-		controlsEl.appendChild(deleteFromHereBtn);
-	}
-
-	controlsEl.appendChild(editBtn);
-	controlsEl.appendChild(deleteBtn);
+	createMessageControlButtons(message.id, controlsEl);
 
 	messageEl.appendChild(controlsEl);
 
@@ -474,30 +453,7 @@ function resetMessageControls(messageId) {
 	// Clear existing controls
 	controlsEl.innerHTML = '';
 
-	// Add edit button
-	const editBtn = document.createElement('button');
-	editBtn.className = 'edit-message';
-	editBtn.textContent = 'Edit';
-	editBtn.addEventListener('click', () => startEditing(messageId));
-
-	// Add delete button
-	const deleteBtn = document.createElement('button');
-	deleteBtn.className = 'delete-message';
-	deleteBtn.textContent = 'Delete';
-	deleteBtn.addEventListener('click', () => deleteMessage(messageId));
-
-	// Add delete-from-here button (only for user messages)
-	const message = messages.find(msg => msg.id === parseInt(messageId));
-	if (message && message.role === 'user') {
-		const deleteFromHereBtn = document.createElement('button');
-		deleteFromHereBtn.className = 'delete-from-here';
-		deleteFromHereBtn.textContent = 'Delete From Here';
-		deleteFromHereBtn.addEventListener('click', () => deleteFromHere(messageId));
-		controlsEl.appendChild(deleteFromHereBtn);
-	}
-
-	controlsEl.appendChild(editBtn);
-	controlsEl.appendChild(deleteBtn);
+	createMessageControlButtons(messageId, controlsEl);
 }
 
 // Clear chat history
@@ -759,15 +715,15 @@ function deleteFromHere(messageId) {
 function createMessageControlButtons(messageId, controlsEl) {
 	// Add edit button
 	const editBtn = document.createElement('button');
-	editBtn.className = 'edit-message';
-	editBtn.textContent = 'Edit';
+	editBtn.className = 'icon-button edit-message';
+	editBtn.innerHTML = '🖊️';
 	editBtn.addEventListener('click', () => startEditing(messageId));
 	controlsEl.appendChild(editBtn);
 
 	// Add delete button
 	const deleteBtn = document.createElement('button');
-	deleteBtn.className = 'delete-message';
-	deleteBtn.textContent = 'Delete';
+	deleteBtn.className = 'icon-button delete-message';
+	deleteBtn.innerHTML = '🗑️';
 	deleteBtn.addEventListener('click', () => deleteMessage(messageId));
 	controlsEl.appendChild(deleteBtn);
 
@@ -775,8 +731,8 @@ function createMessageControlButtons(messageId, controlsEl) {
 	const message = messages.find(msg => msg.id === parseInt(messageId));
 	if (message && message.role === 'user') {
 		const deleteFromHereBtn = document.createElement('button');
-		deleteFromHereBtn.className = 'delete-from-here';
-		deleteFromHereBtn.textContent = 'Delete From Here';
+		deleteFromHereBtn.className = 'icon-button delete-from-here';
+		deleteFromHereBtn.innerHTML = '🗑️⬇️';
 		deleteFromHereBtn.addEventListener('click', () => deleteFromHere(messageId));
 		controlsEl.appendChild(deleteFromHereBtn);
 	}
