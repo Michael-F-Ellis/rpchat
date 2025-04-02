@@ -1,3 +1,79 @@
+// Provider configuration 
+class AIProvider {
+	constructor(id, displayName, endpoint, models, defaultMaxTokens = 1000) {
+		this.id = id;
+		this.displayName = displayName;
+		this.endpoint = endpoint;
+		this.models = models; // Array of model objects
+		this.defaultMaxTokens = defaultMaxTokens;
+	}
+
+	// Helper method to get a specific model by ID
+	getModel(modelId) {
+		return this.models.find(model => model.id === modelId);
+	}
+
+	// Helper method to prepare request body
+	prepareRequestBody(modelId, messages, maxTokens = null) {
+		const model = this.getModel(modelId);
+		return {
+			model: modelId,
+			messages: messages,
+			max_tokens: maxTokens || this.defaultMaxTokens,
+			temperature: model ? model.defaultTemperature : 0.7
+		};
+	}
+
+	// Form the name of the API key from the provider's ID
+	// This allows us to avoid defining a var for each providers key.
+	get apiKeyName() {
+		return `${this.id}ApiKey`;
+	}
+
+}
+
+// Model configuration class
+class AIModel {
+	constructor(id, displayName, defaultTemperature = 0.7) {
+		this.id = id;
+		this.displayName = displayName;
+		this.defaultTemperature = defaultTemperature;
+	}
+}
+
+// Create a map of providers
+const PROVIDERS = new Map([
+	['together', new AIProvider(
+		'together',
+		'Together.ai',
+		'https://api.together.xyz/v1/chat/completions',
+		[
+			new AIModel('meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo', 'Meta Llama 3.1 405B', 0.7),
+			new AIModel('mistralai/Mixtral-8x22B-Instruct-v0.1', 'Mixtral 8x22B', 0.8),
+			new AIModel('microsoft/WizardLM-2-8x22B', 'WizardLM 2 8x22B', 0.7),
+			new AIModel('Qwen/Qwen2.5-72B-Instruct-Turbo', 'Qwen 2.5 72B', 0.6)
+		]
+	)],
+
+	['deepseek', new AIProvider(
+		'deepseek',
+		'DeepSeek',
+		'https://api.deepseek.com/chat/completions',
+		[
+			new AIModel('deepseek-chat', 'DeepSeek Chat', 0.7),
+			new AIModel('deepseek-reasoner', 'DeepSeek Reasoner', 0.5)
+		]
+	)],
+
+	['gemini', new AIProvider(
+		'gemini',
+		'Google Gemini',
+		'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+		[
+			new AIModel('gemini-2.5-pro-exp-03-25', 'Gemini 2.5 Pro', 0.7)
+		]
+	)]
+]);
 // DOM elements
 const apiKeyInput = document.getElementById('api-key');
 const saveKeyBtn = document.getElementById('save-key');
@@ -61,30 +137,52 @@ const DEFAULT_SYSTEM_MESSAGE = {
 };
 
 // State
-let togetherApiKey = localStorage.getItem('togetherApiKey') || '';
-let deepseekApiKey = localStorage.getItem('deepseekApiKey') || '';
-let geminiApiKey = localStorage.getItem('geminiApiKey') || '';
-let apiKey = togetherApiKey; // Default to Together.ai
+let apiKeys = {}; // Object to store API keys for different providers
+let currentProvider = localStorage.getItem('apiProvider') || 'together';
 let messages = [];
 let isProcessing = false;
 
 // Initialize app
 function init() {
-	// Load the appropriate API key based on selected provider
-	apiProviderSelector.addEventListener('change', () => {
-		updateApiKeyDisplay();
-		updateModelOptions();
+	// Populate provider selector
+	apiProviderSelector.innerHTML = '';
+	PROVIDERS.forEach((provider, id) => {
+		const option = document.createElement('option');
+		option.value = id;
+		option.textContent = provider.displayName;
+		apiProviderSelector.appendChild(option);
+
+		// Load API keys for all providers
+		const savedKey = localStorage.getItem(provider.apiKeyName);
+		if (savedKey) {
+			apiKeys[provider.apiKeyName] = savedKey;
+		}
 	});
 
 	// Load saved provider preference if available
 	const savedProvider = localStorage.getItem('apiProvider') || 'together';
-	apiProviderSelector.value = savedProvider;
-	updateApiKeyDisplay();
-	updateModelOptions(); // Add this line to initialize models
+	if (PROVIDERS.has(savedProvider)) {
+		apiProviderSelector.value = savedProvider;
+		currentProvider = savedProvider;
+	}
 
-	if (apiKey) {
-		apiKeyInput.value = '********'; // Don't show the actual key for security
-		statusMessage.textContent = 'API key loaded from storage';
+	apiProviderSelector.addEventListener('change', () => {
+		currentProvider = apiProviderSelector.value;
+		localStorage.setItem('apiProvider', currentProvider);
+		updateApiKeyDisplay();
+		updateModelOptions();
+	});
+
+	updateApiKeyDisplay();
+	updateModelOptions();
+
+	const provider = PROVIDERS.get(currentProvider);
+	const keyName = provider.apiKeyName;
+	const apiKey = apiKeys[keyName];
+
+	if (!apiKey) {
+		showStatus('Please enter your API key', 'error');
+		return;
 	}
 
 	// Load chat history from localStorage if available
@@ -127,54 +225,45 @@ function init() {
 }
 
 function updateApiKeyDisplay() {
-	const provider = apiProviderSelector.value;
-	localStorage.setItem('apiProvider', provider);
+	const provider = PROVIDERS.get(currentProvider);
 
-	if (provider === 'together') {
-		apiKey = togetherApiKey;
-	} else if (provider === 'deepseek') {
-		apiKey = deepseekApiKey;
-	} else if (provider === 'gemini') {
-		apiKey = geminiApiKey;
+	if (!provider) {
+		showStatus(`Provider ${currentProvider} not found`, 'error');
+		return;
 	}
 
+	const keyName = provider.apiKeyName;
+	const apiKey = apiKeys[keyName];
+
 	apiKeyInput.value = apiKey ? '********' : '';
-	statusMessage.textContent = apiKey ? `${provider.charAt(0).toUpperCase() + provider.slice(1)} API key loaded` : 'No API key set';
+
+	statusMessage.textContent = apiKey ?
+		`${provider.displayName} API key loaded` :
+		'No API key set';
 }
 
 // Save API key to localStorage
 function saveApiKey() {
 	const key = apiKeyInput.value.trim();
-	const provider = apiProviderSelector.value;
+	const provider = PROVIDERS.get(currentProvider);
+
+	if (!provider) {
+		showStatus(`Provider ${currentProvider} not found`, 'error');
+		return;
+	}
+
+	const keyName = provider.apiKeyName;
 
 	if (key && key !== '********') {
-		if (provider === 'together') {
-			togetherApiKey = key;
-			localStorage.setItem('togetherApiKey', key);
-		} else if (provider === 'deepseek') {
-			deepseekApiKey = key;
-			localStorage.setItem('deepseekApiKey', key);
-		} else if (provider === 'gemini') {
-			geminiApiKey = key;
-			localStorage.setItem('geminiApiKey', key);
-		}
-		apiKey = key;
+		apiKeys[keyName] = key;
+		localStorage.setItem(keyName, key);
 		apiKeyInput.value = '********';
-		showStatus(`${provider.charAt(0).toUpperCase() + provider.slice(1)} API key saved successfully`, 'success');
+		showStatus(`${provider.displayName} API key saved successfully`, 'success');
 	} else if (key === '') {
 		// Clear API key if empty
-		if (provider === 'together') {
-			togetherApiKey = '';
-			localStorage.removeItem('togetherApiKey');
-		} else if (provider === 'deepseek') {
-			deepseekApiKey = '';
-			localStorage.removeItem('deepseekApiKey');
-		} else if (provider === 'gemini') {
-			geminiApiKey = '';
-			localStorage.removeItem('geminiApiKey');
-		}
-		apiKey = '';
-		showStatus(`${provider.charAt(0).toUpperCase() + provider.slice(1)} API key removed`, 'success');
+		delete apiKeys[keyName];
+		localStorage.removeItem(keyName);
+		showStatus(`${provider.displayName} API key removed`, 'success');
 	}
 }
 
@@ -195,8 +284,12 @@ async function sendMessage() {
 	const text = userInput.value.trim();
 	if (!text || isProcessing) return;
 
+	const provider = PROVIDERS.get(currentProvider);
+	const keyName = provider.apiKeyName;
+	const apiKey = apiKeys[keyName];
+
 	if (!apiKey) {
-		showStatus('Please enter your Together.ai API key', 'error');
+		showStatus('Please enter your API key', 'error');
 		return;
 	}
 
@@ -224,11 +317,17 @@ async function sendMessage() {
 	}
 }
 
-// Fetch response from Together.ai API
+// Fetch response from current provider API
 async function fetchAIResponse(userMessage, model) {
-	const provider = apiProviderSelector.value;
-	let url;
-	let requestBody;
+	const providerId = apiProviderSelector.value;
+	const provider = PROVIDERS.get(providerId);
+
+	if (!provider) {
+		throw new Error(`Provider ${providerId} not found`);
+	}
+
+	const keyName = provider.apiKeyName;
+	const apiKey = apiKeys[keyName];
 
 	// Prepare messages for API - start with system message
 	const apiMessages = [
@@ -245,34 +344,11 @@ async function fetchAIResponse(userMessage, model) {
 		content: userMessage
 	});
 
-	if (provider === 'together') {
-		url = 'https://api.together.xyz/v1/chat/completions';
-		requestBody = {
-			model: model,
-			messages: apiMessages,
-			max_tokens: 1000,
-			temperature: 0.7
-		};
-	} else if (provider === 'deepseek') {
-		url = 'https://api.deepseek.com/chat/completions';
-		requestBody = {
-			model: model,
-			messages: apiMessages,
-			max_tokens: 1000,
-			temperature: 0.7
-		};
-	} else if (provider === 'gemini') {
-		url = 'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions';
-		requestBody = {
-			model: model,
-			messages: apiMessages,
-			max_tokens: 1000,
-			temperature: 0.7
-		};
-	}
+	// Use the provider's helper method to prepare the request body
+	const requestBody = provider.prepareRequestBody(model, apiMessages);
 
 	try {
-		const response = await fetch(url, {
+		const response = await fetch(provider.endpoint, {
 			method: 'POST',
 			headers: {
 				'Content-Type': 'application/json',
@@ -307,7 +383,7 @@ async function fetchAIResponse(userMessage, model) {
 	}
 }
 
-// New function to handle failed requests
+// Function to handle failed requests
 function handleFailedRequest(userMessage) {
 	// Remove the last message (which should be the user message that failed)
 	if (messages.length > 0 && messages[messages.length - 1].role === 'user') {
@@ -477,52 +553,27 @@ function addClearChatButton() {
 }
 
 function updateModelOptions() {
-	const provider = apiProviderSelector.value;
+	const providerId = apiProviderSelector.value;
+	const provider = PROVIDERS.get(providerId);
+
+	if (!provider) {
+		console.error(`Provider ${providerId} not found`);
+		return;
+	}
+
 	modelSelector.innerHTML = '';
 
-	if (provider === 'together') {
-		// Together.ai models
-		const togetherModels = [
-			'meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo',
-			'mistralai/Mixtral-8x22B-Instruct-v0.1',
-			'microsoft/WizardLM-2-8x22B',
-			'Qwen/Qwen2.5-72B-Instruct-Turbo',
-			// Add other Together models
-		];
+	// Add each model from the provider to the selector
+	provider.models.forEach(model => {
+		const option = document.createElement('option');
+		option.value = model.id;
+		option.textContent = model.displayName;
+		modelSelector.appendChild(option);
+	});
 
-		togetherModels.forEach(model => {
-			const option = document.createElement('option');
-			option.value = model;
-			option.textContent = model;
-			modelSelector.appendChild(option);
-		});
-	} else if (provider === 'deepseek') {
-		// DeepSeek models
-		const deepseekModels = [
-			'deepseek-chat',
-			'deepseek-reasoner'
-			// Add other DeepSeek models
-		];
-
-		deepseekModels.forEach(model => {
-			const option = document.createElement('option');
-			option.value = model;
-			option.textContent = model;
-			modelSelector.appendChild(option);
-		});
-	} else if (provider === 'gemini') {
-		// Gemini models
-		const geminiModels = [
-			'gemini-2.5-pro-exp-03-25',
-			// Add other Gemini models as they become available
-		];
-
-		geminiModels.forEach(model => {
-			const option = document.createElement('option');
-			option.value = model;
-			option.textContent = model;
-			modelSelector.appendChild(option);
-		});
+	// Select the first model by default if available
+	if (provider.models.length > 0) {
+		modelSelector.value = provider.models[0].id;
 	}
 }
 
@@ -738,4 +789,3 @@ function createMessageControlButtons(messageId, controlsEl) {
 	}
 
 }
-
