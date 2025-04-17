@@ -5,12 +5,12 @@ import re
 # Module order is important for dependencies
 JS_MODULES = [
     'js/config.js',
-    'js/state.js',
+    'js/state.js',  # Added state.js module
     'js/api.js',
     'js/ui/elements.js',
     'js/ui/messages.js',
     'js/ui/controls.js',
-    'js/ui/importExport.js',
+    'js/importExport.js',
     'js/app.js'
 ]
 

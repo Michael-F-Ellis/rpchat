@@ -125,7 +125,15 @@ window.RPChat.app = (function () {
 		});
 		// Call this in init() or after addClearChatButton()
 		addClearChatButton();
-		setupImportExport();
+		const header = document.querySelector('header');
+		window.RPChat.importExport.setupImportExport(
+			header,
+			messages,  // Make sure this is the same messages array used for rendering
+			SYSTEM_MESSAGE,
+			systemPromptTextarea,
+			renderMessages,  // Pass the actual function reference
+			showStatus
+		);
 	}
 
 	function updateApiKeyDisplay() {
@@ -319,12 +327,17 @@ window.RPChat.app = (function () {
 
 	// Render all messages
 	function renderMessages() {
+		// Clear the chat history completely
 		chatHistory.innerHTML = '';
 
+		// Rebuild the UI from the messages array
 		messages.forEach((message) => {
 			const messageEl = createMessageElement(message);
 			chatHistory.appendChild(messageEl);
 		});
+
+		// Ensure we scroll to the bottom
+		chatHistory.scrollTop = chatHistory.scrollHeight;
 	}
 
 	// Create a single message element
@@ -560,73 +573,7 @@ window.RPChat.app = (function () {
 		});
 	}
 
-	function exportChat() {
-		const chatData = {
-			messages: messages,
-			systemPrompt: SYSTEM_MESSAGE.content,
-			exportDate: new Date().toISOString()
-		};
-
-		const dataStr = JSON.stringify(chatData, null, 2);
-		const dataUri = 'data:application/json;charset=utf-8,' + encodeURIComponent(dataStr);
-
-		const exportFileDefaultName = `rpchat-export-${new Date().toISOString().slice(0, 10)}.json`;
-
-		const linkElement = document.createElement('a');
-		linkElement.setAttribute('href', dataUri);
-		linkElement.setAttribute('download', exportFileDefaultName);
-		linkElement.click();
-	}
-
-	function setupImportExport() {
-		const header = document.querySelector('header');
-
-		const exportBtn = document.createElement('button');
-		exportBtn.id = 'export-chat';
-		exportBtn.textContent = 'Export Chat';
-		exportBtn.addEventListener('click', exportChat);
-
-		const importInput = document.createElement('input');
-		importInput.type = 'file';
-		importInput.id = 'import-input';
-		importInput.accept = '.json';
-		importInput.style.display = 'none';
-
-		const importBtn = document.createElement('button');
-		importBtn.id = 'import-chat';
-		importBtn.textContent = 'Import Chat';
-		importBtn.addEventListener('click', () => importInput.click());
-
-		importInput.addEventListener('change', (event) => {
-			const file = event.target.files[0];
-			if (file) {
-				const reader = new FileReader();
-				reader.onload = (e) => {
-					try {
-						const importedData = JSON.parse(e.target.result);
-						if (confirm('Import this chat? Current chat will be replaced.')) {
-							messages = importedData.messages || [];
-							if (importedData.systemPrompt) {
-								SYSTEM_MESSAGE.content = importedData.systemPrompt;
-								systemPromptTextarea.value = importedData.systemPrompt;
-								localStorage.setItem('systemPrompt', importedData.systemPrompt);
-							}
-							localStorage.setItem('chatHistory', JSON.stringify(messages));
-							renderMessages();
-							showStatus('Chat imported successfully', 'success');
-						}
-					} catch (error) {
-						showStatus('Error importing chat: Invalid format', 'error');
-					}
-				};
-				reader.readAsText(file);
-			}
-		});
-
-		header.appendChild(exportBtn);
-		header.appendChild(importBtn);
-		document.body.appendChild(importInput);
-	}// Delete a single message
+	// Delete a single message
 	function deleteMessage(messageId) {
 		if (confirm('Are you sure you want to delete this message?')) {
 			const messageIndex = messages.findIndex(msg => msg.id === messageId);
@@ -726,7 +673,16 @@ window.RPChat.app = (function () {
 		// Insert before the user input
 		inputParent.insertBefore(tempContainer, userInput);
 	}
-	return { init: init, };
+
+	// Add a getter for the messages array
+	function getMessages() {
+		return messages;
+	}
+
+	return {
+		init: init,
+		getMessages: getMessages
+	};
 })();
 
 // Initialize the app
