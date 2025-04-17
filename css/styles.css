@@ -263,3 +263,18 @@ button.delete-from-here {
 	background-color: #f7f2f1;
 	border-color: #000000;
 }
+
+.temperature-container {
+	display: flex;
+	align-items: center;
+	margin-bottom: 10px;
+}
+
+.temperature-container label {
+	margin-right: 10px;
+}
+
+#temperature-input {
+	width: 70px;
+	padding: 5px;
+}

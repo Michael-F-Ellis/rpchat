@@ -14,13 +14,13 @@ class AIProvider {
 	}
 
 	// Helper method to prepare request body
-	prepareRequestBody(modelId, messages, maxTokens = null) {
+	prepareRequestBody(modelId, messages, maxTokens = null, temperature = null) {
 		const model = this.getModel(modelId);
 		return {
 			model: modelId,
 			messages: messages,
 			max_tokens: maxTokens || this.defaultMaxTokens,
-			temperature: model ? model.defaultTemperature : 0.7
+			temperature: temperature !== null ? parseFloat(temperature) : (model ? model.defaultTemperature : 0.7)
 		};
 	}
 
@@ -87,6 +87,7 @@ const systemPromptContainer = document.getElementById('system-prompt-container')
 const systemPromptTextarea = document.getElementById('system-prompt-textarea');
 const saveSystemPromptBtn = document.getElementById('save-system-prompt');
 const resetSystemPromptBtn = document.getElementById('reset-system-prompt');
+let temperatureInput; // Declare but don't assign yet
 
 // System message that sets the context for the AI
 const SYSTEM_MESSAGE = {
@@ -141,6 +142,20 @@ let apiKeys = {}; // Object to store API keys for different providers
 let currentProvider = localStorage.getItem('apiProvider') || 'together';
 let messages = [];
 let isProcessing = false;
+// Setup listener for model changes to update temperature
+function setupModelChangeListener() {
+	modelSelector.addEventListener('change', () => {
+		const providerId = apiProviderSelector.value;
+		const provider = PROVIDERS.get(providerId);
+		if (provider) {
+			const selectedModelId = modelSelector.value;
+			const selectedModel = provider.getModel(selectedModelId); // Use the existing helper method
+			if (selectedModel && temperatureInput) { // Ensure temperatureInput is initialized
+				temperatureInput.value = selectedModel.defaultTemperature.toFixed(2);
+			}
+		}
+	});
+}
 
 // Initialize app
 function init() {
@@ -173,8 +188,14 @@ function init() {
 		updateModelOptions();
 	});
 
+	// Add the temperature control to the UI
+	addTemperatureControl();
+
 	updateApiKeyDisplay();
 	updateModelOptions();
+
+	// Setup the model change listener
+	setupModelChangeListener();
 
 	const provider = PROVIDERS.get(currentProvider);
 	const keyName = provider.apiKeyName;
@@ -574,6 +595,9 @@ function updateModelOptions() {
 	// Select the first model by default if available
 	if (provider.models.length > 0) {
 		modelSelector.value = provider.models[0].id;
+		// Set the temperature to the default for this model
+		const defaultModel = provider.models[0];
+		temperatureInput.value = defaultModel.defaultTemperature.toFixed(2);
 	}
 }
 
@@ -788,4 +812,37 @@ function createMessageControlButtons(messageId, controlsEl) {
 		controlsEl.appendChild(deleteFromHereBtn);
 	}
 
+}
+
+// Add this function to create and insert the temperature control
+function addTemperatureControl() {
+	// Create container for temperature control
+	const tempContainer = document.createElement('div');
+	tempContainer.className = 'temperature-container';
+
+	// Create label
+	const tempLabel = document.createElement('label');
+	tempLabel.htmlFor = 'temperature-input';
+	tempLabel.textContent = 'Temperature:';
+
+	// Create input
+	const tempInput = document.createElement('input'); // Keep this local const
+	tempInput.type = 'number';
+	tempInput.id = 'temperature-input';
+	tempInput.min = '0';
+	tempInput.step = '0.01';
+	tempInput.value = '0.7'; // Default value
+
+	// Assign the created element to the global variable
+	temperatureInput = tempInput;
+
+	// Add elements to container
+	tempContainer.appendChild(tempLabel);
+	tempContainer.appendChild(tempInput);
+
+	// Find a reliable parent element
+	const inputParent = userInput.parentElement;
+
+	// Insert before the user input
+	inputParent.insertBefore(tempContainer, userInput);
 }
