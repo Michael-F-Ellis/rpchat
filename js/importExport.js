@@ -20,7 +20,7 @@ window.RPChat.importExport = (function () {
 	}
 
 	// Function to set up import/export UI elements
-	function setupImportExport(header, messagesRef, SYSTEM_MESSAGE, systemPromptTextarea, renderMessages, showStatus) {
+	function setupImportExport(header, messagesRef, systemPromptAccess, renderMessages, showStatus) {
 		// Remove any existing buttons to prevent duplicates
 		const existingExportBtn = document.getElementById('export-chat');
 		const existingImportBtn = document.getElementById('import-chat');
@@ -50,46 +50,56 @@ window.RPChat.importExport = (function () {
 			const file = event.target.files[0];
 			if (file) {
 				const reader = new FileReader();
-				reader.onload = (e) => {
+
+				reader.onload = function (e) {
 					try {
 						const importedData = JSON.parse(e.target.result);
-						if (confirm('Import this chat? Current chat will be replaced.')) {
-							// Get a reference to the outer scope messages array
-							const messagesArray = window.RPChat.app.getMessages();
 
-							// Clear the existing messages array
-							messagesArray.length = 0;
-
-							// Add the imported messages
-							if (Array.isArray(importedData.messages)) {
-								importedData.messages.forEach(msg => messagesArray.push(msg));
-							}
-
-							if (importedData.systemPrompt) {
-								SYSTEM_MESSAGE.content = importedData.systemPrompt;
-								systemPromptTextarea.value = importedData.systemPrompt;
-								localStorage.setItem('systemPrompt', importedData.systemPrompt);
-							}
-
-							localStorage.setItem('chatHistory', JSON.stringify(messagesArray));
-							renderMessages();
-							showStatus('Chat imported successfully', 'success');
+						// Basic validation
+						if (!importedData || !Array.isArray(importedData.messages) || typeof importedData.systemPrompt !== 'string') {
+							throw new Error('Invalid chat file format.');
 						}
+
+						// Clear existing messages and push imported ones
+						messagesRef.length = 0; // Clear the array in place
+						messagesRef.push(...importedData.messages); // Add new messages
+
+						// Update system prompt using the setter
+						systemPromptAccess.set(importedData.systemPrompt);
+
+						// Persist changes
+						localStorage.setItem('chatHistory', JSON.stringify(messagesRef));
+						localStorage.setItem('systemPrompt', importedData.systemPrompt);
+
+						renderMessages(); // Update the UI with the imported messages
+
+						showStatus('Chat imported successfully', 'success');
+
 					} catch (error) {
-						console.error('Import error:', error);
-						showStatus('Error importing chat: Invalid format', 'error');
+						console.error('Error importing chat:', error);
+						showStatus(`Error importing chat: ${error.message}`, 'error');
+					} finally {
+						// Reset the input value to allow importing the same file again
+						importInput.value = '';
 					}
 				};
+
+				reader.onerror = function () {
+					showStatus('Error reading file', 'error');
+					// Reset the input value
+					importInput.value = '';
+				};
+
 				reader.readAsText(file);
 			}
 		});
 
+		// Append buttons and input to the header
 		header.appendChild(exportBtn);
 		header.appendChild(importBtn);
-		document.body.appendChild(importInput);
+		header.appendChild(importInput); // Keep the input in the DOM, just hidden
 	}
 
-	// Public API
 	return {
 		setupImportExport: setupImportExport,
 		exportChat: exportChat

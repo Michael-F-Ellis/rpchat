@@ -16,7 +16,7 @@ window.RPChat.app = (function () {
 	let temperatureInput; // Declare but don't assign yet
 
 	// Access exported items from config
-	const { AIProvider, AIModel, PROVIDERS, SYSTEM_MESSAGE, DEFAULT_SYSTEM_MESSAGE } = window.RPChat.config;
+	const { AIProvider, AIModel, PROVIDERS, DEFAULT_SYSTEM_MESSAGE } = window.RPChat.config;
 
 
 	// State
@@ -24,7 +24,7 @@ window.RPChat.app = (function () {
 	let currentProvider = localStorage.getItem('apiProvider') || 'together';
 	let messages = [];
 	let isProcessing = false;
-	// Setup listener for model changes to update temperature
+	let currentSystemPromptContent = DEFAULT_SYSTEM_MESSAGE.content; // Initialize with default	// Setup listener for model changes to update temperature
 	function setupModelChangeListener() {
 		modelSelector.addEventListener('change', () => {
 			const providerId = apiProviderSelector.value;
@@ -95,14 +95,11 @@ window.RPChat.app = (function () {
 			renderMessages();
 		}
 
-		// Load saved system prompt if available
+		// Initialize state variable for system prompt (loads saved or uses default)
 		const savedSystemPrompt = localStorage.getItem('systemPrompt');
-		if (savedSystemPrompt) {
-			SYSTEM_MESSAGE.content = savedSystemPrompt;
-		}
-
+		currentSystemPromptContent = savedSystemPrompt || DEFAULT_SYSTEM_MESSAGE.content;
 		// Initialize the system prompt textarea
-		systemPromptTextarea.value = SYSTEM_MESSAGE.content;
+		systemPromptTextarea.value = currentSystemPromptContent;
 
 		// Set up the expanding textarea behavior
 		setupExpandingSystemPrompt();
@@ -127,10 +124,21 @@ window.RPChat.app = (function () {
 		addClearChatButton();
 		const header = document.querySelector('header');
 		window.RPChat.importExport.setupImportExport(
-			header,
-			messages,  // Make sure this is the same messages array used for rendering
-			SYSTEM_MESSAGE,
-			systemPromptTextarea,
+			header, // Parent element for buttons
+			messages, // The messages array state (passed by reference)
+			{ // Pass the object with getter and setter for the system prompt
+				get: function () {
+					return currentSystemPromptContent;
+				},
+				set: function (newPromptContent) {
+					// Update the state variable
+					currentSystemPromptContent = newPromptContent;
+					// Update the UI textarea
+					systemPromptTextarea.value = newPromptContent;
+					// Persist the change (handled within importExport now)
+					// localStorage.setItem('systemPrompt', newPromptContent);
+				}
+			},
 			renderMessages,  // Pass the actual function reference
 			showStatus
 		);
@@ -452,7 +460,7 @@ window.RPChat.app = (function () {
 	// Clear chat history
 	function clearChat() {
 		if (confirm('Are you sure you want to clear the chat history?')) {
-			messages = [];
+			messages.length = 0;
 			localStorage.removeItem('chatHistory');
 			renderMessages();
 			showStatus('Chat history cleared', 'success');
