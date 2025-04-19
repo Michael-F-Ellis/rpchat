@@ -979,7 +979,7 @@ window.RPChat.app = (function () {
 
 		// Prepare messages for API - start with system message
 		const apiMessages = [
-			SYSTEM_MESSAGE,
+			currentSystemPromptContent,
 			...messages.map(msg => ({
 				role: msg.role,
 				content: msg.content
