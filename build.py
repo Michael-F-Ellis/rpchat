@@ -4,14 +4,14 @@ import re
 
 # Module order is important for dependencies
 JS_MODULES = [
+    
+    'js/globals.js',
+    'components/chatmessage.js',
+    'components/chatmanager.js',
     'js/config.js',
-    'js/state.js',
-    'js/api.js', # Assuming api.js might be created soon or exists
-    'js/ui/elements.js', # Assuming elements.js might be created soon or exists
-    'js/ui/messages.js', # <-- Add the new module here
-    'js/ui/controls.js', # Assuming controls.js might be created soon or exists
-    'js/importExport.js',
+    'js/api.js',
     'js/app.js'
+	
 ]
 
 CSS_FILES = [

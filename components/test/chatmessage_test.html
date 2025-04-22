@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>ChatMessage Test</title>
+	<!-- Basic styling for visibility -->
+	<style>
+		body {
+			font-family: sans-serif;
+			margin: 20px;
+		}
+
+		.message {
+			border: 1px solid #ccc;
+			margin: 10px 0;
+			padding: 10px;
+			border-radius: 5px;
+			position: relative;
+			/* For positioning controls if needed */
+		}
+
+		.system-message {
+			background-color: #f0f0f0;
+			color: #555;
+			font-style: italic;
+		}
+
+		.user-message {
+			background-color: #e0f7fa;
+			margin-left: 40px;
+			/* Indent user messages */
+		}
+
+		.assistant-message {
+			background-color: #fce4ec;
+			margin-right: 40px;
+			/* Indent assistant messages */
+		}
+
+		.editable-content {
+			white-space: pre-wrap;
+			/* Preserve whitespace and wrap text */
+		}
+
+		.message-controls {
+			margin-top: 8px;
+			text-align: right;
+			font-size: 0.8em;
+		}
+
+		.icon-button {
+			background: none;
+			border: none;
+			cursor: pointer;
+			font-size: 1.2em;
+			/* Make icons slightly larger */
+			padding: 0 4px;
+			margin-left: 5px;
+		}
+
+		.save-edit,
+		.cancel-edit {
+			margin-left: 5px;
+			padding: 3px 6px;
+			cursor: pointer;
+		}
+
+		/* Example CSS - add to your stylesheet */
+		.message-body.collapsed {
+			display: none;
+		}
+
+		.toggle-collapse {
+			/* Add some basic styling for the button */
+			background: none;
+			border: none;
+			padding: 2px 5px;
+			cursor: pointer;
+			font-size: 0.9em;
+			color: var(--text-color-secondary);
+			/* Example variable */
+			margin-bottom: 5px;
+			display: block;
+			/* Make it take its own line */
+			width: 100%;
+			/* Optional: make it full width */
+			text-align: left;
+			/* Optional: align text */
+		}
+
+		.toggle-collapse:hover {
+			opacity: 0.8;
+		}
+
+		/* Optional: Add some indentation for the content when expanded */
+		.message.collapsible .message-body {
+			padding-left: 15px;
+			border-left: 2px solid var(--border-color);
+			/* Example variable */
+			margin-left: 5px;
+		}
+	</style>
+	<!-- Include the component script - Adjust path if necessary -->
+	<!-- 'defer' ensures script runs after HTML is parsed -->
+	<script src="../chatmessage.js" defer></script>
+</head>
+
+<body>
+	<h1>ChatMessage Component Test</h1>
+
+	<div id="message-container">
+		<!-- Chat messages will be rendered here by the script -->
+	</div>
+
+	<hr>
+	<p><em>Note: This test page renders messages using the ChatMessage component. Interaction buttons (edit/delete)
+			might not function correctly without adjustments to the ChatMessage class itself to handle scope and event
+			binding properly, especially regarding the use of global functions and variables like `messages`,
+			`deleteMessage`, etc., within its methods. The provided `ChatMessage` code has issues with variable scope
+			(e.g., `contentEl`, `controlsEl`, `messageId` are used without being properly defined/passed in some
+			methods) and relies on global functions for event handlers instead of using the provided callbacks or
+			instance methods correctly.</em></p>
+
+	<script>
+		// --- Dummy Globals/Functions ---
+		// Provide dummy implementations for functions/variables that
+		// the ChatMessage component seems to expect in the global scope
+		// or relies on for its internal event handlers in the provided code.
+		const messages = []; // Dummy array referenced by createMessageControlButtons
+
+		function deleteMessage(id) {
+			console.log(`Global deleteMessage called for id: ${id}`);
+			alert(`Global Delete action called for message ID: ${id}. This uses the global function.`);
+			// In a real app, you'd find the message by ID and remove it
+			// from your data store and potentially the DOM.
+			const msgElement = document.querySelector(`[data-id="${id}"]`);
+			if (msgElement) {
+				// msgElement.remove(); // Example removal
+				msgElement.style.border = '2px dashed red'; // Visual feedback for test
+			}
+		}
+
+		function deleteFromHere(id) {
+			console.log(`Global deleteFromHere called for id: ${id}`);
+			alert(`Global Delete-from-here action called for message ID: ${id}. This uses the global function.`);
+			// In a real app, find this message and all subsequent messages
+			// and remove them from data store and DOM.
+			const msgElement = document.querySelector(`[data-id="${id}"]`);
+			if (msgElement) {
+				msgElement.style.border = '2px dashed orange'; // Visual feedback
+			}
+		}
+
+		function showStatus(message, type = 'info') {
+			console.log(`Status [${type}]: ${message}`);
+			// You could display this in a status bar element
+		}
+
+		// --- Test Script ---
+		// Wait for the DOM to be fully loaded and the script to be ready
+		document.addEventListener('DOMContentLoaded', () => {
+			const container = document.getElementById('message-container');
+
+			if (!container) {
+				console.error('Message container div not found!');
+				return;
+			}
+			if (typeof ChatMessage === 'undefined') {
+				console.error('ChatMessage class not found! Check the script path (<script src="...">).');
+				container.innerHTML = '<p style="color: red;">Error: ChatMessage class not defined. Check console.</p>';
+				return;
+			}
+
+			// Dummy callbacks passed to the constructor
+			// These are distinct from the global dummies above. The component
+			// should ideally use these callbacks internally.
+			// NOTE: The current ChatMessage implementation doesn't seem to use these passed callbacks
+			// for its button event listeners, relying on global functions instead.
+			const instanceDeleteCB = (id) => {
+				console.log(`Instance deleteCB called for id: ${id}`);
+				alert(`Instance delete callback executed for ${id}. This uses the callback passed to the constructor.`);
+				const msgElement = document.querySelector(`[data-id="${id}"]`);
+				if (msgElement) {
+					msgElement.style.border = '2px solid blue'; // Visual feedback for test
+					// msgElement.remove(); // Uncomment to test removal
+				} else {
+					console.log(`Could not find message element ${id} to remove via instance CB.`);
+				}
+				// Also remove from the dummy 'messages' array if needed
+				const index = messages.findIndex(m => m.id == id); // Use == for potential type coercion if IDs are mixed
+				if (index > -1) {
+					messages.splice(index, 1);
+					console.log('Removed message from dummy array via instance CB:', id);
+				}
+			};
+
+			const instanceDeleteFromHereCB = (id) => {
+				console.log(`Instance deleteFromHereCB called for id: ${id}`);
+				alert(`Instance delete-from-here callback executed for ${id}. This uses the callback passed to the constructor.`);
+				// Find index and remove subsequent elements from DOM and array
+				const msgElement = document.querySelector(`[data-id="${id}"]`);
+				if (msgElement) {
+					msgElement.style.border = '2px solid purple'; // Visual feedback
+				}
+			};
+
+
+			try {
+				console.log('Creating and rendering messages...');
+
+				// 1. System Message
+				const systemMsg = new ChatMessage(
+					'system',
+					'This is a system message setting the context.',
+					instanceDeleteCB, // Pass the instance-specific callback
+					instanceDeleteFromHereCB // Pass the instance-specific callback
+				);
+				// Manually add to the global messages array because the component's
+				// createMessageControlButtons method references it globally.
+				messages.push({ id: systemMsg.id, role: systemMsg.role, content: systemMsg.content });
+				systemMsg.render(container);
+				console.log('Rendered system message:', systemMsg.id);
+
+				// 2. User Message
+				const userMsg = new ChatMessage(
+					'user',
+					'Hello Assistant, can you help me with this?',
+					instanceDeleteCB,
+					instanceDeleteFromHereCB
+				);
+				messages.push({ id: userMsg.id, role: userMsg.role, content: userMsg.content });
+				userMsg.render(container);
+				console.log('Rendered user message:', userMsg.id);
+
+				// 3. Assistant Message
+				const assistantMsg = new ChatMessage(
+					'assistant',
+					'Certainly! I can help with that. What specifically do you need assistance with?\nI can provide code examples or explain concepts.',
+					instanceDeleteCB,
+					instanceDeleteFromHereCB
+				);
+				messages.push({ id: assistantMsg.id, role: assistantMsg.role, content: assistantMsg.content });
+				assistantMsg.render(container);
+				console.log('Rendered assistant message:', assistantMsg.id);
+				// Insert an APP message
+				const appMsg = new ChatMessage(
+					'app',
+					'This is an app message.',
+					instanceDeleteCB,
+					instanceDeleteFromHereCB
+				);
+				messages.push({ id: appMsg.id, role: appMsg.role, content: appMsg.content });
+				appMsg.render(container);
+				console.log('Rendered app message:', appMsg.id);
+
+				// 4. Another User Message (to test delete-from-here)
+				const userMsg2 = new ChatMessage(
+					'user',
+					'Tell me about JavaScript classes.',
+					instanceDeleteCB,
+					instanceDeleteFromHereCB
+				);
+				messages.push({ id: userMsg2.id, role: userMsg2.role, content: userMsg2.content });
+				userMsg2.render(container);
+				console.log('Rendered second user message:', userMsg2.id);
+
+
+				console.log('Finished rendering messages.');
+				console.log('Current dummy messages array:', messages);
+
+			} catch (error) {
+				console.error('Error creating or rendering ChatMessage:', error);
+				container.innerHTML = `<p style="color: red;">Error during ChatMessage instantiation or rendering: ${error.message}. Check console.</p>`;
+			}
+		});
+	</script>
+</body>
+
+</html>

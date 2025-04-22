@@ -125,5 +125,5 @@ Forbidden Elements
 	};
 
 	// return the classes and constants we expose
-	return { AIProvider, AIModel, PROVIDERS, SYSTEM_MESSAGE, DEFAULT_SYSTEM_MESSAGE };
+	return { AIProvider, AIModel, PROVIDERS, DEFAULT_SYSTEM_MESSAGE };
 })();
