@@ -6,16 +6,6 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>RPChat - Editable AI Chat</title>
 	<!-- CSS_PLACEHOLDER -->
-	<style>
-		.chat-container {
-			max-height: 70vh;
-			overflow-y: auto;
-			padding: 1rem;
-			border: 1px solid #ddd;
-			border-radius: 5px;
-			margin-bottom: 1rem;
-		}
-	</style>
 </head>
 
 <body>
@@ -53,7 +43,6 @@
 				<button id="clear-chat">Clear</button>
 				<button id="export-chat">Export</button>
 				<button id="import-chat">Import</button>
-				<input type="file" id="import-file" accept=".json" style="display: none;">
 			</div>
 
 			<div class="temperature-container">
@@ -66,21 +55,6 @@
 			</div>
 		</footer>
 	</div>
-	<script>
-		const statusMessage = document.getElementById('status');
-
-		// Show status message
-		function showStatus(message, type = '') {
-			statusMessage.textContent = message;
-			statusMessage.className = "status-bar" + " " + type;
-
-			// Clear status after 3 seconds
-			setTimeout(() => {
-				statusMessage.textContent = '';
-				statusMessage.className = '';
-			}, 2999);
-		}
-	</script>
 	<!-- JS_PLACEHOLDER -->
 </body>
 

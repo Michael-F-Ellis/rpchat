@@ -1,3 +1,4 @@
+/* CONFIGURATION */
 window.RPChat = window.RPChat || {};
 window.RPChat.config = (function () {
 	// Provider configuration 

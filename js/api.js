@@ -1,3 +1,4 @@
+// API CONTROLS
 // Initialize the header elements using the classes and functions provided in config.js
 
 /**

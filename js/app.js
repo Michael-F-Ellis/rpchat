@@ -1,4 +1,4 @@
-// Main application for RPChat using ChatManager and ChatMessage components
+// Main application code for RPChat using ChatManager and ChatMessage components
 
 // Define state variables
 let apiKeys = {};
@@ -36,6 +36,18 @@ function init() {	// Load saved state from localStorage
 
 	// Show initialization status
 	showStatus('Application initialized');
+
+	// Initialize import/export functionality
+	initImportExport();
+}
+
+// Set up import/export functionality
+function initImportExport() {
+	// Set up the import/export functionality
+	RPChat.importExport.setupImportExport(
+		chatManager,                     // Pass the entire chatManager object
+		showStatus                       // Function to show status messages
+	);
 }
 
 // Load state from localStorage
@@ -257,7 +269,6 @@ function attachEventListeners() {
 	// Initial button state
 	updateSendButtonState();
 
-	elements.systemPromptToggle?.addEventListener('click', handleToggleSystemPrompt);
 }
 
 // Handle provider change
@@ -494,41 +505,10 @@ function initializeAPIElements(config) {
 
 // Call initialization
 initializeAPIElements(window.RPChat.config);
-// Add this function
-function handleToggleSystemPrompt() {
-	if (elements.systemPromptContainer) {
-		// Toggle visibility
-		const isVisible = elements.systemPromptContainer.style.display !== 'none';
-		elements.systemPromptContainer.style.display = isVisible ? 'none' : 'block';
-
-		// Update button text
-		if (elements.systemPromptToggle) {
-			elements.systemPromptToggle.textContent = isVisible ? 'Show System Prompt' : 'Hide System Prompt';
-		}
-	}
-}
 
 // Utility function to scroll chat container to bottom
 function scrollToBottom() {
 	if (elements.chatContainer) {
 		elements.chatContainer.scrollTop = elements.chatContainer.scrollHeight;
 	}
-}
-
-// Add or update the system prompt saving function
-function handleSaveSystemPrompt() {
-	const systemPromptContent = document.getElementById('system-prompt-textarea').value;
-
-	if (!systemPromptContent.trim()) {
-		showStatus('System prompt cannot be empty', 'error');
-		return;
-	}
-
-	// Update the chat manager
-	chatManager.setSystemPrompt(systemPromptContent);
-
-	// Store in sessionStorage
-	sessionStorage.setItem('systemPrompt', systemPromptContent);
-
-	showStatus('System prompt saved');
 }

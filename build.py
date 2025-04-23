@@ -10,6 +10,7 @@ JS_MODULES = [
     'components/chatmanager.js',
     'js/config.js',
     'js/api.js',
+    'js/importExport.js',
     'js/app.js'
 	
 ]

@@ -71,12 +71,14 @@ class ChatManager {
 		}
 	}
 	/**
-	 * Helper method to ensure there's always a trailing empty user message.
+	 * Helper method to ensure there's always a trailing empty user message
+	 * only if the last message is not a user message.
 	 * @private
 	 */
 	_ensureTrailingUserMessage() {
 		const lastMessage = this.messages[this.messages.length - 1];
-		if (!lastMessage || lastMessage.role !== ROLES.USER || lastMessage.content !== '') {
+		// Only add an empty user message if the last message is not a user message
+		if (!lastMessage || (lastMessage.role !== ROLES.USER)) {
 			const emptyUserMessage = new ChatMessage(
 				ROLES.USER,
 				'',
@@ -90,54 +92,110 @@ class ChatManager {
 	}
 
 	/**
-	 * Adds a new USER or ASSISTANT message to the chat.
-	 * System messages cannot be added via this method.
-	 * Ensures a trailing empty user message exists if an assistant message was added.
-	 * @param {string} role - The role ('user', 'assistant'). MUST NOT be 'system'.
-	 * @param {string} content - The message content. Cannot be empty for 'user' role if it's meant to replace the trailing empty message.
-	 * @returns {ChatMessage|null} The newly created ChatMessage instance, or null if role is invalid.
+	 * Adds multiple messages at once, minimizing UI updates and notifications.
+	 * @param {Array<{role: string, content: string}|Array<string, string>>} messages - Array of message objects or [role, content] arrays
+	 * @returns {Array<ChatMessage>} Array of the newly created ChatMessage instances
 	 */
-	addMessage(role, content) {
-		// --- Enforce System Message Rule ---
-		if (role === ROLES.SYSTEM) {
-			this.notificationHandler('Cannot add another system message. Edit the existing one.', 'error');
-			console.error("Attempted to add a system message via addMessage. Use constructor or load for system message.");
-			return null; // Prevent adding system messages here
-		}
-		// --- End System Message Enforcement ---
-
-		// Validate role is user or assistant
-		if (role !== ROLES.USER && role !== ROLES.ASSISTANT) {
-			this.notificationHandler(`Invalid role "${role}". Only "${ROLES.USER}" or "${ROLES.ASSISTANT}" can be added.`, 'error');
-			console.error(`Invalid role passed to addMessage: ${role}`);
-			return null;
+	addMessages(messages) {
+		if (!Array.isArray(messages) || messages.length === 0) {
+			return [];
 		}
 
-		// If adding a non-empty user message, remove the trailing empty one if it exists
-		if (role === ROLES.USER && content !== '') {
-			const lastMessage = this.messages[this.messages.length - 1];
-			if (lastMessage && lastMessage.role === ROLES.USER && lastMessage.content === '') {
-				this.messages.pop();
+		const addedMessages = [];
+		let systemMessageUpdated = false;
+
+		// Process all messages
+		for (let i = 0; i < messages.length; i++) {
+			const msg = messages[i];
+			let role, content;
+
+			// Handle both object {role, content} and array [role, content] formats
+			if (Array.isArray(msg)) {
+				[role, content] = msg;
+			} else if (typeof msg === 'object' && msg !== null) {
+				role = msg.role;
+				content = msg.content;
+			} else {
+				console.error('Invalid message format:', msg);
+				continue;
 			}
+
+			// Handle system message specially
+			if (role === ROLES.SYSTEM) {
+				const systemMessageIndex = this.messages.findIndex(m => m.role === ROLES.SYSTEM);
+
+				if (systemMessageIndex !== -1) {
+					// Update existing system message
+					this.messages[systemMessageIndex].content = content;
+
+					// Update the DOM element directly if it exists
+					const contentEl = this.messages[systemMessageIndex].element?.querySelector(`.${CSS_CLASSES.EDITABLE_CONTENT}`);
+					if (contentEl) {
+						contentEl.textContent = content;
+					}
+
+					addedMessages.push(this.messages[systemMessageIndex]);
+					systemMessageUpdated = true;
+				} else {
+					// Create new system message and insert at beginning
+					const systemMessage = new ChatMessage(
+						ROLES.SYSTEM,
+						content,
+						this.handleDelete,
+						this.handleDeleteFromHere,
+						this.notificationHandler
+					);
+					this.messages.unshift(systemMessage);
+					addedMessages.push(systemMessage);
+					systemMessageUpdated = true;
+				}
+				continue;
+			}
+
+			// Validate role is user or assistant
+			if (role !== ROLES.USER && role !== ROLES.ASSISTANT && role !== ROLES.APP) {
+				this.notificationHandler(`Invalid role "${role}" in message batch. Skipping.`, 'error');
+				console.error(`Invalid role in message batch: ${role}`);
+				continue;
+			}
+
+			// If adding a non-empty user message and it's not the first one processed,
+			// remove the trailing empty user message if it exists
+			if (role === ROLES.USER && content !== '') {
+				const lastMessage = this.messages[this.messages.length - 1];
+				if (lastMessage && lastMessage.role === ROLES.USER && lastMessage.content === '') {
+					this.messages.pop();
+				}
+			}
+
+			const newMessage = new ChatMessage(
+				role,
+				content,
+				this.handleDelete,
+				this.handleDeleteFromHere,
+				this.notificationHandler
+			);
+			this.messages.push(newMessage);
+			addedMessages.push(newMessage);
 		}
 
-		const newMessage = new ChatMessage(
-			role,
-			content,
-			this.handleDelete,         // Pass the bound delete handler
-			this.handleDeleteFromHere, // Pass the bound delete-from-here handler
-			this.notificationHandler   // Pass the notification handler
-		);
-		this.messages.push(newMessage); // Add to the end
+		// Only ensure trailing user message and send notification once at the end
+		this._ensureTrailingUserMessage();
 
-		// --- Ensure Trailing User Message ---
-		// If we just added an assistant message, make sure there's a user message after it.
-		this._ensureTrailingUserMessage(); // Ensure it exists after any addition
-		// --- End Trailing User Message ---
+		// Send a single notification
+		if (systemMessageUpdated) {
+			this.notificationHandler('System prompt updated.', 'info');
+		}
+		if (addedMessages.length > 0) {
+			this._notifyUpdate();
+		}
 
-		this._notifyUpdate(); // Notify that the message list has changed
+		return addedMessages;
+	}
 
-		return newMessage;
+	// Keep the original addMessage for backward compatibility and single message adds
+	addMessage(role, content) {
+		return this.addMessages([{ role, content }])[0] || null;
 	}
 
 	/**
@@ -172,6 +230,10 @@ class ChatManager {
 			this._ensureTrailingUserMessage(); // Add if needed
 			// --- End Trailing User Message ---
 
+			this.render();
+			if (this.onUpdate) {
+				this.onUpdate();
+			}
 			this._notifyUpdate(); // Notify that the message list has changed
 		} else {
 			this.notificationHandler('Could not find message to delete.', 'error');

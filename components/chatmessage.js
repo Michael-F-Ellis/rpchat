@@ -1,3 +1,8 @@
+/* Chat Message Class and Constants
+ *
+ * This class represents a chat message with various properties and methods.
+ * It also defines a set of CSS classes used for styling and identifying message roles.
+ */
 const CSS_CLASSES = {
 	MESSAGE: 'message',
 	SYSTEM_MESSAGE: 'system-message',

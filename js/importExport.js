@@ -1,10 +1,10 @@
+/* IMPORT EXPORT */
 window.RPChat = window.RPChat || {};
 window.RPChat.importExport = (function () {
 	// Function to export chat data
-	function exportChat(messages, systemMessage) {
+	function exportChat(messages) {
 		const chatData = {
-			messages: messages,
-			systemPrompt: systemMessage.content,
+			messages: messages.map(msg => ({ role: msg.role, content: msg.content })), // Just export the data, not the full objects
 			exportDate: new Date().toISOString()
 		};
 
@@ -19,32 +19,34 @@ window.RPChat.importExport = (function () {
 		linkElement.click();
 	}
 
-	// Function to set up import/export UI elements
-	function setupImportExport(header, messagesRef, systemPromptAccess, renderMessages, showStatus) {
-		// Remove any existing buttons to prevent duplicates
-		const existingExportBtn = document.getElementById('export-chat');
-		const existingImportBtn = document.getElementById('import-chat');
-		const existingImportInput = document.getElementById('import-input');
+	// Function to set up import/export UI elements using existing buttons
+	function setupImportExport(chatManager, showStatus) {
+		// Get references to existing buttons in the footer
+		const exportBtn = document.getElementById('export-chat');
+		const importBtn = document.getElementById('import-chat');
 
-		if (existingExportBtn) existingExportBtn.remove();
-		if (existingImportBtn) existingImportBtn.remove();
-		if (existingImportInput) existingImportInput.remove();
-
-		const exportBtn = document.createElement('button');
-		exportBtn.id = 'export-chat';
-		exportBtn.textContent = 'Export Chat';
-		exportBtn.addEventListener('click', () => exportChat(messagesRef, SYSTEM_MESSAGE));
-
+		// Create a hidden file input for import
 		const importInput = document.createElement('input');
 		importInput.type = 'file';
 		importInput.id = 'import-input';
 		importInput.accept = '.json';
 		importInput.style.display = 'none';
+		document.body.appendChild(importInput);
 
-		const importBtn = document.createElement('button');
-		importBtn.id = 'import-chat';
-		importBtn.textContent = 'Import Chat';
-		importBtn.addEventListener('click', () => importInput.click());
+		// Add event listeners to the existing buttons
+		if (exportBtn) {
+			exportBtn.addEventListener('click', () => {
+				exportChat(chatManager.messages);
+			});
+		} else {
+			console.error('Export button not found in the DOM');
+		}
+
+		if (importBtn) {
+			importBtn.addEventListener('click', () => importInput.click());
+		} else {
+			console.error('Import button not found in the DOM');
+		}
 
 		importInput.addEventListener('change', (event) => {
 			const file = event.target.files[0];
@@ -56,22 +58,40 @@ window.RPChat.importExport = (function () {
 						const importedData = JSON.parse(e.target.result);
 
 						// Basic validation
-						if (!importedData || !Array.isArray(importedData.messages) || typeof importedData.systemPrompt !== 'string') {
+						if (!importedData || !Array.isArray(importedData.messages)) {
 							throw new Error('Invalid chat file format.');
 						}
 
-						// Clear existing messages and push imported ones
-						messagesRef.length = 0; // Clear the array in place
-						messagesRef.push(...importedData.messages); // Add new messages
+						// Clear existing messages
+						chatManager.messages.length = 0;
 
-						// Update system prompt using the setter
-						systemPromptAccess.set(importedData.systemPrompt);
+						// Use ChatManager's methods to properly create new ChatMessage instances
+						// First add the system message (should be the first one in the array)
+						const systemMessage = importedData.messages.find(msg => msg.role === 'system');
+
+						// Create a batch of messages to add
+						const messagesToAdd = [];
+
+						// Add system message first if it exists
+						if (systemMessage) {
+							messagesToAdd.push(systemMessage);
+						}
+
+						// Add all non-system messages in order
+						importedData.messages
+							.filter(msg => msg.role !== 'system')
+							.forEach(msg => {
+								messagesToAdd.push(msg);
+							});
+
+						// Add all messages in one batch
+						chatManager.addMessages(messagesToAdd);
 
 						// Persist changes
-						localStorage.setItem('chatHistory', JSON.stringify(messagesRef));
-						localStorage.setItem('systemPrompt', importedData.systemPrompt);
+						sessionStorage.setItem('chatMessages', JSON.stringify(chatManager.getMessagesJSON()));
 
-						renderMessages(); // Update the UI with the imported messages
+						// Render the chat
+						chatManager.render();
 
 						showStatus('Chat imported successfully', 'success');
 
@@ -93,11 +113,6 @@ window.RPChat.importExport = (function () {
 				reader.readAsText(file);
 			}
 		});
-
-		// Append buttons and input to the header
-		header.appendChild(exportBtn);
-		header.appendChild(importBtn);
-		header.appendChild(importInput); // Keep the input in the DOM, just hidden
 	}
 
 	return {
