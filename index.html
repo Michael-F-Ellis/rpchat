@@ -13,6 +13,7 @@
 			--highlight-color: #805ad5;
 			--light-color: #f7fafc;
 			--dark-color: #1a202c;
+			--light-link-color: #e36ce9;
 		}
 
 		* {
@@ -47,6 +48,11 @@
 			border-bottom: 2px solid var(--highlight-color);
 			flex-wrap: wrap;
 			gap: 1rem;
+		}
+
+		.header-link {
+			color: var(--light-link-color);
+			text-decoration: none;
 		}
 
 		h1 {
@@ -85,6 +91,13 @@
 
 		button:hover {
 			background-color: #6b46c1;
+		}
+
+		button:disabled {
+			background-color: #a8a8a8;
+			color: #e0e0e0;
+			cursor: not-allowed;
+			opacity: 0.7;
 		}
 
 		.chat-container {
@@ -155,10 +168,6 @@
 		.input-area {
 			display: flex;
 			gap: 0.5rem;
-		}
-
-		#send-button {
-			padding: 0 1.5rem;
 		}
 
 		.status-bar {
@@ -259,7 +268,12 @@
 <body>
 	<div class="container">
 		<header>
-			<h1>RPChat</h1>
+			<div>
+				<h1>RPChat</h1>
+				v.1.0.0<br>
+				<a href="https://github.com/michael-f-ellis/rpchat" class="header-link" target="_blank">Source on
+					GitHub</a>
+			</div>
 			<div class="api-key-container">
 				<label for="api-key">API Key:</label>
 				<div class="input-group">
@@ -597,12 +611,9 @@
 				const systemPromptContent = initialSystemPrompt || 'You are a helpful assistant.'; // Ensure non-empty
 
 				// Create and add the mandatory system message FIRST.
-				const systemMessage = new ChatMessage(
+				const systemMessage = this.createMessage(
 					ROLES.SYSTEM,
 					systemPromptContent,
-					this.handleDelete,
-					this.handleDeleteFromHere,
-					this.notificationHandler
 				);
 				this.messages.push(systemMessage);
 				// --- End System Message Enforcement ---
@@ -633,16 +644,23 @@
 				const lastMessage = this.messages[this.messages.length - 1];
 				// Only add an empty user message if the last message is not a user message
 				if (!lastMessage || (lastMessage.role !== ROLES.USER)) {
-					const emptyUserMessage = new ChatMessage(
+					const emptyUserMessage = this.createMessage(
 						ROLES.USER,
 						'',
-						this.handleDelete,
-						this.handleDeleteFromHere,
-						this.notificationHandler
 					);
 					this.messages.push(emptyUserMessage);
 					// No direct render call here; rely on the calling method to notify
 				}
+			}
+			// Message factory
+			createMessage(role, content) {
+				return new ChatMessage(
+					role,
+					content,
+					this.handleDelete,
+					this.handleDeleteFromHere,
+					this.notificationHandler
+				);
 			}
 
 			/**
@@ -692,12 +710,9 @@
 							systemMessageUpdated = true;
 						} else {
 							// Create new system message and insert at beginning
-							const systemMessage = new ChatMessage(
+							const systemMessage = this.createMessage(
 								ROLES.SYSTEM,
 								content,
-								this.handleDelete,
-								this.handleDeleteFromHere,
-								this.notificationHandler
 							);
 							this.messages.unshift(systemMessage);
 							addedMessages.push(systemMessage);
@@ -722,12 +737,9 @@
 						}
 					}
 
-					const newMessage = new ChatMessage(
+					const newMessage = this.createMessage(
 						role,
 						content,
-						this.handleDelete,
-						this.handleDeleteFromHere,
-						this.notificationHandler
 					);
 					this.messages.push(newMessage);
 					addedMessages.push(newMessage);
@@ -802,8 +814,9 @@
 			 * @param {string} messageId - The ID of the message to delete from (inclusive).
 			 */
 			handleDeleteFromHere(messageId) {
-				const index = this.messages.findIndex(msg => msg.id === messageId);
+				let index = this.messages.findIndex(msg => msg.id === messageId);
 				if (index !== -1) {
+					index++; // Increment index to exclude the starting message
 					// --- Enforce System Message Rule ---
 					if (index === 0) {
 						this.notificationHandler('Cannot "delete from here" starting at the system message.', 'warning');
@@ -811,7 +824,7 @@
 					}
 					// --- End System Message Enforcement ---
 					// require confirmation from user before deleting
-					if (!confirm(`Are you sure you want to delete all messages from this message onward?`)) {
+					if (!confirm(`Are you sure you want to delete all messages after this message?`)) {
 						return;
 					}
 					const deleteCount = this.messages.length - index;
@@ -905,12 +918,9 @@
 					// 4. Add messages from parsed data
 					parsedMessages.forEach(msgData => {
 						// Recreate ChatMessage instances
-						const newMessage = new ChatMessage(
+						const newMessage = this.createMessage(
 							msgData.role,
 							msgData.content,
-							this.handleDelete,
-							this.handleDeleteFromHere,
-							this.notificationHandler
 						);
 						this.messages.push(newMessage);
 					});
@@ -918,12 +928,9 @@
 					// --- Ensure System Message and Trailing User Message ---
 					if (this.messages.length === 0 || this.messages[0]?.role !== ROLES.SYSTEM) {
 						// Add default system message if none exists
-						const systemMessage = new ChatMessage(
+						const systemMessage = this.createMessage(
 							ROLES.SYSTEM,
 							'You are a helpful assistant.',
-							this.handleDelete,
-							this.handleDeleteFromHere,
-							this.notificationHandler
 						);
 						this.messages.unshift(systemMessage);
 					}
@@ -1089,6 +1096,16 @@
 
 			// Create a map of providers
 			const PROVIDERS = new Map([
+				['deepseek', new AIProvider(
+					'deepseek',
+					'DeepSeek',
+					'https://api.deepseek.com/chat/completions',
+					[
+						new AIModel('deepseek-chat', 'DeepSeek Chat', 0.7),
+						new AIModel('deepseek-reasoner', 'DeepSeek Reasoner', 0.5)
+					]
+				)],
+
 				['together', new AIProvider(
 					'together',
 					'Together.ai',
@@ -1098,16 +1115,6 @@
 						new AIModel('mistralai/Mixtral-8x22B-Instruct-v0.1', 'Mixtral 8x22B', 0.8),
 						new AIModel('microsoft/WizardLM-2-8x22B', 'WizardLM 2 8x22B', 0.7),
 						new AIModel('Qwen/Qwen2.5-72B-Instruct-Turbo', 'Qwen 2.5 72B', 0.6)
-					]
-				)],
-
-				['deepseek', new AIProvider(
-					'deepseek',
-					'DeepSeek',
-					'https://api.deepseek.com/chat/completions',
-					[
-						new AIModel('deepseek-chat', 'DeepSeek Chat', 0.7),
-						new AIModel('deepseek-reasoner', 'DeepSeek Reasoner', 0.5)
 					]
 				)],
 
@@ -1140,7 +1147,7 @@ Response Structure & Length:
 
 Strategy and Purpose:
 * You need not reveal all your character's plans and motivations immediately to the user.
-* You may explain, act, command, acquiesce, discuss, question, interrogate, confront, resist, protest, plead, stand firm, ... all according to the needs of the moment and the user's responses.
+* You may explain, act, command, acquiesce, discuss, question, interrogate, confront, resist, protest, plead, stand firm, submit, ... all according to the needs of the moment and the user's responses.
 * Adapt fluidly to the user's tone and pace, balancing brevity with vividness. Prioritize momentum over perfection.
 
 Prioritize Action and Dialogue:
@@ -1150,16 +1157,19 @@ Prioritize Action and Dialogue:
 
 * Avoid repetition: Shift scenes forward, introduce new stakes, or deepen conflict with each reply. Short repetitions for dramatic effect are permitted, e.g., "Well? Well? Answer me. I'm waiting, David..."
 
-Narrative Flow
-* Leave room for collaboration: End responses with open-ended actions, questions, or choices to invite user input.
-Example: "MaryAnn, we can do this the easy way or the hard way. Your choice. What's it gonna be?"
+Narrative Flow:
+* Leave room for collaboration: Use open-ended actions, questions, or choices to invite user input.
+  * Examples:
+    * 'I switch off the light and whisper, "Shh!"'
+    * "Did you see that?"
+    * "MaryAnn, we can do this the easy way or the hard way. Your choice. What's it gonna be?"
 
 * Sensory details: Highlight textures, sounds, or fleeting gestures to ground the scene (e.g., "I see the smoke curl from your cigarette, its small wavers revealing the tremor in your hand.").
 
-Forbidden Elements
-* No emotional narration (e.g., "I felt guilty" → "I can't meet her eyes as I toss the empty vial into the fire.").
-* No premature closures, Avoid cheesy paragraphs that signal the end, e.g. "We stand side by side, knowing that whatever challenges the future might bring, we would face them together." Always assume the story will continue.  Leave closures for the user's character to provide.
-* No redundant descriptions (e.g., repeating setting details unless plot-critical).
+Avoid:
+* Emotional narration (e.g., "I felt guilty"). Something like this is better, "I can't meet your  eyes as I toss the empty vial into the fire.").
+* Premature closures, especially avoid cheesy paragraphs that signal the end, e.g. "We stand side by side, knowing that whatever challenges the future might bring, we would face them together." Always assume the story will continue.  Leave closures for the user's character to provide.
+* Repeating setting details (unless critical to the plot).
 `
 			};
 
@@ -1388,22 +1398,26 @@ Forbidden Elements
 
 		// Load state from local and session storage
 		function loadStateFromStorage() {
+			// Init fallback values using first item from PROVIDERS
+			const firstProvider = Array.from(window.RPChat.config.PROVIDERS.values())[0];
+			const firstProviderKey = Array.from(window.RPChat.config.PROVIDERS.keys())[0];
+			const fp = firstProviderKey
+			const fm = firstProvider.models[0].id;
+			const tmp = firstProvider.models[0].defaultTemperature;
 			try {
-				// Keep API keys in localStorage for sharing across tabs
+				// Keep API keys are in localStorage for sharing across tabs
 				apiKeys = JSON.parse(localStorage.getItem('apiKeys')) || {};
 
-				// Use sessionStorage for everything else
-				currentProvider = sessionStorage.getItem('apiProvider');
+				// We use sessionStorage for everything else
+				currentProvider = sessionStorage.getItem('apiProvider') || fp;
 
-				selectedModelId = sessionStorage.getItem('selectedModelId') ||
-					null;
+				selectedModelId = sessionStorage.getItem('selectedModelId') || fm;
+				null;
 				temperature = sessionStorage.getItem('temperature') ?
 					parseFloat(sessionStorage.getItem('temperature')) :
-					null;
+					tmp;
 			} catch (error) {
-				console.error('Error loading state from storage:', error);
-				// Set defaults if loading fails
-				currentProvider = Array.from(window.RPChat.config.PROVIDERS.keys())[0];
+				showStatus('Error loading state from storage:', 'error');
 			}
 		}
 
