@@ -1,6 +1,17 @@
 # RPChat - Editable AI Chat Client
 
 RPChat is a flexible chat interface for roleplaying with AI language models. It allows you to edit both your messages and AI responses, providing full control over the conversation context.
+## Getting Started
+- Clone this repository or download the files
+- Open index.html in your browser
+- Select your preferred AI provider from the dropdown
+- Enter your API key for the selected provider and click "Save Key"
+- Select a model and adjust the temperature as needed
+- Use your first prompt to define roles for yourself and the AI
+- - It can be as simple 'You are Jack and I am Jill' 
+- - or complex as you like with fully fleshed out characters and scenario.
+- - The AI will respond as the character you defined for it.
+- Start chatting!
 
 ## Features
 ### Multiple AI Provider Support Built in:
@@ -30,13 +41,6 @@ All the CSS, HTML and JavaScript is bundled into a single file you can edit and 
 ### Privacy-Focused:
 - All data stored locally in your browser
 - API keys never sent to any server except the respective AI provider
-## Setup
-- Clone this repository or download the files
-- Open index.html in your browser
-- Select your preferred AI provider from the dropdown
-- Enter your API key for the selected provider and click "Save Key"
-- Select a model and adjust the temperature as needed
-- Start chatting!
 ## Usage
 ### Requirements
 - A modern browser (tested on Chrome, Firefox, and Edge)
