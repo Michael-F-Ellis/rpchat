@@ -957,10 +957,10 @@
 						// Recreate ChatMessage instances
 						const newMessage = this.createMessage(
 							msgData.role,
+							msgData.content,
 							// Step 3: Read characterId and visibility, provide defaults for backward compatibility
 							msgData.characterId !== undefined ? msgData.characterId : 0,
 							msgData.visibility !== undefined ? msgData.visibility : 1,
-							msgData.content
 						);
 						this.messages.push(newMessage);
 					});
