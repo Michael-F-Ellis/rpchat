@@ -53,10 +53,12 @@ This plan focuses on a step-by-step approach, aiming to keep the codebase in a w
 
 **Step 4: Introduce Multi-Character State Management**
 *   **Tasks:**
-    *   In the main application scope (outside classes, near `apiKeys`, `currentProvider`, etc.):
-        *   Add `isMultiCharacterMode: boolean = false;`
-        *   Add `characterDefinitions: Array<{id: number, privatePrompt: string, model?: string}> = [];` (Initially, we can assume two characters, e.g., IDs 1 and 2).
-        *   Add `currentCharacterTurn: number = 1;` (To track whose turn it is).
+    *   In the `ChatManager` class:
+        *   Add `isMultiCharacterMode: boolean` property, defaulting to `false`.
+        *   Add `characterDefinitions: Array<{id: number, privatePrompt: string, model?: string}>` property, defaulting to an empty array.
+        *   Add `currentCharacterTurn: number` property, defaulting to `1` (or a suitable initial value).
+    *   Update the `ChatManager` constructor to initialize these properties, or add new methods (e.g., `enableMultiCharacterMode(definitions)`, `setCharacters(definitions)`) to manage this state.
+    *   **Testing:** No direct functional change yet, but these properties will be used in subsequent steps. `ChatManager` instances should correctly initialize these values.
 *   **Testing:** No direct functional change, but these variables will be used in subsequent steps.
 
 **Step 5: Develop `ChatManager.prepareApiMessagesForCharacter()`**
@@ -75,30 +77,32 @@ This plan focuses on a step-by-step approach, aiming to keep the codebase in a w
 **Step 6: Modify API Call Logic for Multi-Character Mode**
 *   **Tasks:**
     *   In `handleSendMessage()` (or a new function `handleCharacterTurn()`):
-        *   If `isMultiCharacterMode` is true:
-            1.  Determine `nextCharacterId` (e.g., `currentCharacterTurn`).
+        *   If `chatManager.isMultiCharacterMode` is true:
+            1.  Determine `nextCharacterId` (e.g., from `chatManager.currentCharacterTurn` or a new `chatManager.getNextCharacterId()` method).
             2.  Get all messages from `chatManager.messages`.
             3.  Call `chatManager.prepareApiMessagesForCharacter(nextCharacterId, chatManager.messages)` to get the `apiMessages`.
             4.  Proceed with `callAPI(apiMessages)`.
             5.  In `handleApiResponse`, when adding the assistant's message, set its `characterId` to `nextCharacterId` and `visibility` to `1` (public).
-            6.  After a successful response, update `currentCharacterTurn` (e.g., if it was 1, set to 2; if 2, set to 1).
-        *   Else (single-user mode): Use existing logic (`chatManager.getMessagesJSON()`).
+            6.  After a successful response, `chatManager` should update its `currentCharacterTurn` (e.g., via a method like `chatManager.advanceTurn()`).
+        *   Else (single-user mode): Use existing logic (which might now internally use `chatManager.getMessagesForApi()` or similar, rather than `chatManager.getMessagesJSON()` if that's purely for export).
 *   **Testing:**
-    *   Temporarily set `isMultiCharacterMode = true` and hardcode/console-add initial character prompts (private system messages for char 1 & 2) and an opening public message from char 1.
+    *   Temporarily set `chatManager.isMultiCharacterMode = true` (perhaps via a `chatManager.setMultiCharacterMode(true)` call) and use `chatManager` methods to set up `characterDefinitions`. Add initial character prompts and an opening public message.
     *   Trigger `handleSendMessage`. Verify the correct API payload is generated for char 2.
     *   After char 2 responds, trigger again. Verify payload for char 1.
 
 ---
 
-### Phase 2: UI for Mode Selection and Initial Character Setup
+### Phase 2: UI for Mode Selection and Character Setup
 
 **Objective:** Provide UI elements for the user to switch to multi-character mode and define the initial private/system prompts for each character.
 
 **Step 7: UI for Mode Switching**
 *   **Tasks:**
     *   Add a simple UI element (e.g., a checkbox or a toggle button in the header/footer) to switch `isMultiCharacterMode` between `true` and `false`.
-    *   When switching to multi-character mode, perhaps prompt for the number of characters (default to 2 for now).
-    *   Store `isMultiCharacterMode` in `sessionStorage`.
+        *   This UI element should call a method on `chatManager` (e.g., `chatManager.setMultiCharacterMode(true/false)` or `chatManager.toggleMultiCharacterMode()`).
+    *   When switching to multi-character mode, the UI might prompt for character definitions, which are then passed to `chatManager`.
+    *   `ChatManager` should handle the persistence of its `isMultiCharacterMode` state (and related `characterDefinitions`, `currentCharacterTurn`) as part of its overall state management (see Step 13).
+    *   **Testing:** Toggle the mode. Verify `chatManager.isMultiCharacterMode` updates. The application's behavior in `handleSendMessage` should change accordingly.
 *   **Testing:** Toggle the mode and verify the application state changes.
 
 **Step 8: "Add to History" Functionality & Initial Setup UI**
@@ -108,6 +112,7 @@ This plan focuses on a step-by-step approach, aiming to keep the codebase in a w
         *   When adding, UI elements (dropdowns?) should allow setting `role`, `characterId` (0 for global, 1 for Char1, 2 for Char2), and `visibility` (private/public) for the message being added.
     *   Guide the user (perhaps via placeholder text or a small instruction panel when in multi-character mode) to:
         1.  Add a global system prompt (`characterId: 0, visibility: 1`).
+        2.  Use a new UI (or modified existing UI) to define characters (e.g., private prompts, models) which will update `chatManager.characterDefinitions`.
         2.  Add Character 1's private prompt (`characterId: 1, visibility: 0, role: ROLES.SYSTEM`).
         3.  Add Character 2's private prompt (`characterId: 2, visibility: 0, role: ROLES.SYSTEM`).
         4.  Add Character 1's first public utterance (`characterId: 1, visibility: 1, role: ROLES.USER` or a new specific role).
@@ -116,8 +121,8 @@ This plan focuses on a step-by-step approach, aiming to keep the codebase in a w
 **Step 9: Adapt "Send" Button for Turn-Based Interaction**
 *   **Tasks:**
     *   If `isMultiCharacterMode` is true:
-        *   Change the "Send" button's label to reflect whose turn it is (e.g., "Generate for Character X").
-        *   The button should trigger the logic from Step 6.
+        *   Change the "Send" button's label to reflect whose turn it is (e.g., "Generate for Character X"), using `chatManager.currentCharacterTurn` and `chatManager.characterDefinitions` to get character info.
+        *   The button should trigger the multi-character logic from Step 6.
     *   The main text input area might be disabled or repurposed in multi-character mode if turns are purely AI-generated after setup. (User edits messages directly).
 *   **Testing:** Perform a full 2-character interaction using the UI.
 
@@ -151,13 +156,16 @@ This plan focuses on a step-by-step approach, aiming to keep the codebase in a w
 **Step 12: Address `_ensureTrailingUserMessage()`**
 *   **Tasks:**
     *   In `ChatManager`, modify `_ensureTrailingUserMessage()` so it does *not* add a trailing user message if `isMultiCharacterMode` is true, as the flow is different.
+        *   This check will now use `this.isMultiCharacterMode` within the `ChatManager` method.
 *   **Testing:** Ensure no unwanted empty messages appear at the end of multi-character chats.
 
 **Step 13: Import/Export for Multi-Character Chats**
 *   **Tasks:**
     *   Thoroughly test exporting a multi-character chat session.
-    *   Verify that importing this session correctly restores `isMultiCharacterMode`, `characterDefinitions` (if stored), `currentCharacterTurn`, and all message properties (`characterId`, `visibility`).
-    *   The `chatManager.parseMessagesJSON` should already handle the message properties from Step 3. Additional app state might need to be saved/loaded in `init()` and `loadStateFromStorage()`.
+    *   Verify that importing this session correctly restores `ChatManager`'s internal state, including `isMultiCharacterMode`, `characterDefinitions`, and `currentCharacterTurn`, in addition to all message properties (`characterId`, `visibility`).
+    *   `ChatManager.getMessagesJSON()` might need to be augmented or a new method like `getChatStateJSON()` created to include this additional state.
+    *   `ChatManager.parseMessagesJSON()` or a new `loadChatStateJSON(data)` method will need to parse this state and rehydrate the `ChatManager` instance.
+    *   The main application's `loadStateFromStorage` and `onChatUpdate` (for saving) will interact with these new/updated `ChatManager` methods.
 *   **Testing:** Full export/import cycle of a multi-character conversation.
 
 **Step 14: User Editing Flow in Multi-Character Mode**

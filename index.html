@@ -1494,16 +1494,10 @@ Avoid:
 
 		// Initialize ChatManager
 		function initializeChatManager() {
-			// Get system prompt from sessionStorage, fall back to localStorage, then default
-			const systemPrompt = sessionStorage.getItem('systemPrompt') ||
-				window.RPChat.config.DEFAULT_SYSTEM_MESSAGE.content;
-
-			// Store in sessionStorage for future use
-			sessionStorage.setItem('systemPrompt', systemPrompt);
 
 			// Create ChatManager with system prompt and notification handler
 			chatManager = new ChatManager(
-				systemPrompt,
+				window.RPChat.config.DEFAULT_SYSTEM_MESSAGE.content,
 				showStatus,
 				El.chatContainer,
 				onChatUpdate
