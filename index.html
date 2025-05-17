@@ -906,6 +906,64 @@
 			}
 
 			/**
+			 * Prepares messages for API request specifically for a character.
+			 * Filters and transforms messages based on character visibility and ownership.
+			 * @param {number} nextCharacterId - The ID of the character to prepare messages for
+			 * @param {Array<ChatMessage>} [allMessages=this.messages] - Optional array of messages to use instead of this.messages
+			 * @returns {Array<{role: string, content: string}>} Array of transformed message objects for API
+			 */
+			prepareApiMessagesForCharacter(nextCharacterId, allMessages = this.messages) {
+				if (!Array.isArray(allMessages)) {
+					console.error("Invalid messages array provided to prepareApiMessagesForCharacter");
+					return [];
+				}
+
+				// Create a new array of message objects according to the specified rules
+				return allMessages.reduce((apiMessages, message) => {
+					// Skip messages that should be omitted:
+					// - Private messages not belonging to nextCharacterId
+					if (message.visibility === 0 && message.characterId !== nextCharacterId) {
+						return apiMessages; // Skip this message
+					}
+
+					// Determine the role for API based on the rules
+					let apiRole;
+
+					if (
+						// Global system messages rule
+						(message.characterId === 0 && message.visibility === 1 && message.role === ROLES.SYSTEM) ||
+						// Private messages for nextCharacterId rule
+						(message.characterId === nextCharacterId && message.visibility === 0)
+					) {
+						apiRole = 'system';
+					} else if (
+						// Public messages FROM nextCharacterId rule
+						message.characterId === nextCharacterId && message.visibility === 1
+					) {
+						apiRole = 'assistant';
+					} else if (
+						// Public messages FROM other characters rule
+						(message.characterId !== nextCharacterId && message.characterId !== 0 && message.visibility === 1) ||
+						// Public messages from human user rule
+						(message.characterId === 0 && message.visibility === 1 && message.role === ROLES.USER)
+					) {
+						apiRole = 'user';
+					} else {
+						// If no rule matches, skip this message
+						return apiMessages;
+					}
+
+					// Add the transformed message to the API messages array
+					apiMessages.push({
+						role: apiRole,
+						content: message.content
+					});
+
+					return apiMessages;
+				}, []);
+			}
+
+			/**
 			 * Parses a JSON string or an array of message objects and replaces the current chat history.
 			 * Validates that the input data has exactly one system message at the beginning.
 			 * Ensures a trailing empty user message exists after parsing.
@@ -1420,6 +1478,132 @@ Avoid:
 
 			// Initialize ChatManager with system prompt
 			initializeChatManager();
+
+			// Test function for prepareApiMessagesForCharacter.
+			// Add this after the chatManager initialization in the init() function
+			// This makes the test function globally accessible from the browser console
+			window.testPrepareApiMessagesForCharacter = function () {
+				console.log("=== Testing prepareApiMessagesForCharacter() ===");
+
+				// Create an array of test messages with various combinations
+				const testMessages = [
+					{
+						id: "1",
+						role: ROLES.SYSTEM,
+						content: "Global system message",
+						characterId: 0,
+						visibility: 1,
+						expected: { char1: "system", char2: "system", char3: "system" }
+					},
+					{
+						id: "2",
+						role: ROLES.USER,
+						content: "User message (human)",
+						characterId: 0,
+						visibility: 1,
+						expected: { char1: "user", char2: "user", char3: "user" }
+					},
+					{
+						id: "3",
+						role: ROLES.ASSISTANT,
+						content: "Character 1 public message",
+						characterId: 1,
+						visibility: 1,
+						expected: { char1: "assistant", char2: "user", char3: "user" }
+					},
+					{
+						id: "4",
+						role: ROLES.ASSISTANT,
+						content: "Character 2 public message",
+						characterId: 2,
+						visibility: 1,
+						expected: { char1: "user", char2: "assistant", char3: "user" }
+					},
+					{
+						id: "5",
+						role: ROLES.ASSISTANT,
+						content: "Character 1 private message",
+						characterId: 1,
+						visibility: 0,
+						expected: { char1: "system", char2: null, char3: null }
+					},
+					{
+						id: "6",
+						role: ROLES.ASSISTANT,
+						content: "Character 3 private message",
+						characterId: 3,
+						visibility: 0,
+						expected: { char1: null, char2: null, char3: "system" }
+					}
+				];
+
+				// Convert the test messages into ChatMessage instances
+				const mockMessages = testMessages.map(msg => {
+					return {
+						id: msg.id,
+						role: msg.role,
+						content: msg.content,
+						characterId: msg.characterId,
+						visibility: msg.visibility,
+						element: document.createElement('div'), // Mock element
+						expected: msg.expected
+					};
+				});
+
+				// Test for different character IDs
+				const characterIds = [1, 2, 3];
+
+				// Results table for visual comparison
+				console.log("Test Message Summary:");
+				console.table(testMessages.map(m => ({
+					ID: m.id,
+					Content: m.content,
+					Role: m.role,
+					CharId: m.characterId,
+					Visible: m.visibility === 1 ? "Public" : "Private"
+				})));
+
+				// Run tests for each character
+				characterIds.forEach(charId => {
+					console.log(`\n=== Testing for Character ID: ${charId} ===`);
+
+					// Call the method with the current character ID
+					const result = chatManager.prepareApiMessagesForCharacter(charId, mockMessages);
+
+					// Log the raw result
+					console.log("Raw result:", result);
+
+					// Check if each message was processed correctly
+					const expectedResults = mockMessages
+						.filter(msg => msg.expected[`char${charId}`] !== null)
+						.map(msg => ({
+							content: msg.content,
+							expectedRole: msg.expected[`char${charId}`]
+						}));
+
+					// Create comparison table
+					const comparisonTable = result.map((item, index) => {
+						const expected = expectedResults[index];
+						return {
+							"Message": item.content,
+							"Actual Role": item.role,
+							"Expected Role": expected?.expectedRole || "Should be omitted",
+							"Match": expected && item.role === expected.expectedRole ? "✅" : "❌"
+						};
+					});
+
+					console.log(`Results for Character ${charId}:`);
+					console.table(comparisonTable);
+
+					// Verify message count
+					const expectedCount = expectedResults.length;
+					console.log(`Expected ${expectedCount} messages, got ${result.length}: ${expectedCount === result.length ? "✅" : "❌"}`);
+				});
+
+				return "Test completed - check console for results";
+			};
+
+			console.log("Test function added! Run window.testPrepareApiMessagesForCharacter() in console to test.");
 
 			// Attach event listeners
 			attachEventListeners();
