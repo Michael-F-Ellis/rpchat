@@ -30,7 +30,7 @@ This plan focuses on a step-by-step approach, aiming to keep the codebase in a w
 **Step 2: Adapt `ChatManager` for New Message Properties**
 *   **Tasks:**
     *   Modify `ChatManager.createMessage()` to accept `characterId` and `visibility` and pass them to the `ChatMessage` constructor.
-        *   Update existing calls to `createMessage` to pass default values (e.g., `characterId: 0, visibility: 1`) where appropriate (like for the initial system prompt if not otherwise specified, or for app messages).
+        *   Update existing calls to `createMessage` to pass default values (e.g., `characterId: 0, visibility: 1`) where appropriate (like for the initial system prompt if not otherwise spe  cified, or for app messages).
     *   The `_ensureTrailingUserMessage` method should create user messages with `characterId: 0, visibility: 1`.
 *   **Testing:** Verify single-user chat, including adding new messages, still works. System prompt and user messages should have default `characterId` and `visibility`.
 
@@ -42,7 +42,7 @@ This plan focuses on a step-by-step approach, aiming to keep the codebase in a w
         *   When recreating `ChatMessage` instances from loaded data, read `characterId` and `visibility` and pass them to `createMessage`. Provide default values if these fields are missing from older chat exports (for backward compatibility).
 *   **Testing:**
     *   Export a chat, inspect the JSON to confirm new fields are present.
-    *   Import the chat and verify messages are restored correctly (still in single-user mode).
+    *   Import the chat and verify messages are restored correctly (still in single-user m  ode).
     *   Import an old chat file (without these fields) and ensure it loads with default values.
 
 ---

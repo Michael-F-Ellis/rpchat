@@ -369,17 +369,25 @@
 		}
 
 		class ChatMessage {
-			constructor(role, content, deleteCB, deleteFromHereCB, notificationHandler) {
+			constructor(role, content, deleteCB, deleteFromHereCB, notificationHandler, characterId = 0, visibility = 1) {
 				this.role = role;
 				if (!Object.values(ROLES).includes(role)) {
 					throw new Error(`Invalid role: must be one of ${Object.values(ROLES).join(', ')}`);
 				}
 				this.content = content || '';
 				this.id = crypto.randomUUID(); // Modern browsers
+
+				// Step 1: Add characterId and visibility properties
+				this.characterId = characterId;
+				this.visibility = visibility;
+
 				this.element = this.createMessageElement();
 				this.deleteCB = deleteCB || function () { console.log('deleteCB not provided'); };
 				this.deleteFromHereCB = deleteFromHereCB || function () { console.log('deleteFromHereCB not provided'); };
 				this.notificationHandler = notificationHandler || function (message, type) { console.log(`Notification (${type}): ${message}`); };
+
+				// Step 1: Call console log method when a message is created
+				this._logNewMessageDetails();
 			}
 			createMessageElement() {
 				const messageEl = document.createElement('div');
@@ -389,6 +397,10 @@
 						CSS_CLASSES.SYSTEM_MESSAGE
 					}`;
 				messageEl.dataset.id = this.id;
+
+				// Step 1: Add data-character-id and data-visibility attributes
+				messageEl.dataset.characterId = this.characterId;
+				messageEl.dataset.visibility = this.visibility;
 
 				// --- Content and Controls ---
 				const contentEl = document.createElement('div');
@@ -564,6 +576,18 @@
 				container.appendChild(this.element);
 			}
 		}
+		// Step 1: Add a console log method that prints the new vars and attributes
+		ChatMessage.prototype._logNewMessageDetails = function () {
+			if (this.element) {
+				console.log(`ChatMessage Created/Details:
+    ID: ${this.id}, Role: ${this.role}
+    Character ID: ${this.characterId}, Visibility: ${this.visibility}
+    Element data-character-id: ${this.element.dataset.characterId}
+    Element data-visibility: ${this.element.dataset.visibility}`);
+			} else {
+				console.log(`ChatMessage Initializing: ID: ${this.id}, Role: ${this.role}, Character ID: ${this.characterId}, Visibility: ${this.visibility} (Element not yet created)`);
+			}
+		};
 
 
 		// ChatManager is a class that manages a list of ChatMessages.
@@ -623,13 +647,15 @@
 				// --- End Trailing User Message ---
 
 				// Note: No initial rendering from constructor to allow setup completion.
-				// Call render() explicitly after instantiation if needed immediately.
+				// Call render() explicitly after instantiation if needed immediately.				
 			}
 
 			/**
 			 * Calls the registered onUpdate callback, if provided.
 			 * @private
 			 */
+
+
 			_notifyUpdate() {
 				if (typeof this.onUpdate === 'function') {
 					this.onUpdate();
@@ -646,6 +672,8 @@
 				if (!lastMessage || (lastMessage.role !== ROLES.USER)) {
 					const emptyUserMessage = this.createMessage(
 						ROLES.USER,
+						// Step 2: Ensure trailing user message gets default characterId and visibility
+						// These will be picked up by createMessage's new default parameters.
 						'?',
 					);
 					this.messages.push(emptyUserMessage);
@@ -653,13 +681,16 @@
 				}
 			}
 			// Message factory
-			createMessage(role, content) {
+			// Step 2: Modify createMessage to accept characterId and visibility
+			createMessage(role, content, characterId = 0, visibility = 1) {
 				return new ChatMessage(
 					role,
 					content,
 					this.handleDelete,
 					this.handleDeleteFromHere,
-					this.notificationHandler
+					this.notificationHandler,
+					characterId, // Pass to ChatMessage constructor
+					visibility   // Pass to ChatMessage constructor
 				);
 			}
 
@@ -712,6 +743,8 @@
 							// Create new system message and insert at beginning
 							const systemMessage = this.createMessage(
 								ROLES.SYSTEM,
+								// Step 2: Ensure new system message gets default characterId and visibility
+								// These will be picked up by createMessage's new default parameters.
 								content,
 							);
 							this.messages.unshift(systemMessage);
@@ -739,6 +772,8 @@
 
 					const newMessage = this.createMessage(
 						role,
+						// Step 2: Ensure new messages get default characterId and visibility if not specified
+						// These will be picked up by createMessage's new default parameters.
 						content,
 					);
 					this.messages.push(newMessage);
@@ -864,7 +899,9 @@
 
 				return messagesToExport.map(message => ({
 					role: message.role,
-					content: message.content
+					content: message.content,
+					characterId: message.characterId, // Step 3: Include characterId
+					visibility: message.visibility    // Step 3: Include visibility
 				}));
 			}
 
@@ -920,7 +957,10 @@
 						// Recreate ChatMessage instances
 						const newMessage = this.createMessage(
 							msgData.role,
-							msgData.content,
+							// Step 3: Read characterId and visibility, provide defaults for backward compatibility
+							msgData.characterId !== undefined ? msgData.characterId : 0,
+							msgData.visibility !== undefined ? msgData.visibility : 1,
+							msgData.content
 						);
 						this.messages.push(newMessage);
 					});
@@ -930,6 +970,8 @@
 						// Add default system message if none exists
 						const systemMessage = this.createMessage(
 							ROLES.SYSTEM,
+							// Step 2: Ensure default system message gets default characterId and visibility
+							// These will be picked up by createMessage's new default parameters.
 							'You are a helpful assistant.',
 						);
 						this.messages.unshift(systemMessage);
