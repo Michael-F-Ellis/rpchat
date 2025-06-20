@@ -1,2 +1,5 @@
 # ignore deployment script
 pushio.py
+
+# ignore generated providers file
+providers.json
