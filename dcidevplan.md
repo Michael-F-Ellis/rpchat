@@ -2,9 +2,9 @@
 
 ## 1. Goals
 
-*   Enable two AI-driven characters to interact with each other within the RPChat interface.
-*   Allow each character to have private knowledge (via system prompts) not visible to the other character's AI model.
-*   Maintain the user's ability to observe, edit responses from both characters, and manually trigger each character's turn.
+*   Enable multipe AI-driven characters to interact with each other within the RPChat interface.
+*   Allow characters to have private knowledge (via user prompts) not visible to some or all of the other characters' AI models.
+*   Maintain the user's ability to observe, edit responses from all characters, and manually trigger each the next round robin iteration between characters.
 *   Ensure that the entire interaction, including private prompts and character assignments, can be saved and loaded via the existing import/export functionality.
 *   Implement these changes incrementally, ensuring the application remains functional for standard single-user chat throughout the development process.
 
@@ -81,7 +81,7 @@ This plan focuses on a step-by-step approach, aiming to keep the codebase in a w
             1.  Determine `nextCharacterId` (e.g., from `chatManager.currentCharacterTurn` or a new `chatManager.getNextCharacterId()` method).
             2.  Get all messages from `chatManager.messages`.
             3.  Call `chatManager.prepareApiMessagesForCharacter(nextCharacterId, chatManager.messages)` to get the `apiMessages`.
-            4.  Proceed with `callAPI(apiMessages)`.
+            4.  Proceed with `callAPI(apiMessages)` .
             5.  In `handleApiResponse`, when adding the assistant's message, set its `characterId` to `nextCharacterId` and `visibility` to `1` (public).
             6.  After a successful response, `chatManager` should update its `currentCharacterTurn` (e.g., via a method like `chatManager.advanceTurn()`).
         *   Else (single-user mode): Use existing logic (which might now internally use `chatManager.getMessagesForApi()` or similar, rather than `chatManager.getMessagesJSON()` if that's purely for export).
