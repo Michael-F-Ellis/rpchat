@@ -25,102 +25,95 @@ type Provider struct {
 	DefaultMaxTokens int     `json:"defaultMaxTokens"`
 }
 
-// APIKeyName generates the key used to look up the API key for this provider.
-// This is the Go equivalent of the `apiKeyName` getter in the JS class.
-func (p *Provider) APIKeyName() string {
-	return fmt.Sprintf("%sApiKey", p.ID)
+// APIKeys is a map of provider IDs to their API keys. We use a separate struct to
+// allow provider maps to be shared without exposing the API keys.
+type APIKeys struct {
+	Map map[string]string `json:"map"`
+}
+
+// Get retrieves an API key for a provider
+func (a APIKeys) Get(providerID string) (string, error) {
+	apiKey, ok := a.Map[providerID]
+	if !ok {
+		return "", fmt.Errorf("no API key found for provider: %s", providerID)
+	}
+	return apiKey, nil
+}
+
+// Set adds or updates an API key for a provider
+func (a *APIKeys) Set(providerID, apiKey string) {
+	// Using pointer receiver so we can modify the map
+	if a.Map == nil {
+		a.Map = make(map[string]string)
+	}
+	a.Map[providerID] = apiKey
+}
+
+// Store serializes the API keys to JSON and writes it to a json file
+func (a *APIKeys) Store(filepath string) error {
+	jsonData, err := json.MarshalIndent(a, "", "  ")
+	if err != nil {
+		return fmt.Errorf("error marshaling API keys: %w", err)
+	}
+
+	// write the JSON data to the specified file
+	if filepath == "" {
+		filepath = "apikeys.json"
+	}
+	err = os.WriteFile(filepath, jsonData, 0600) // Using more restrictive permissions for API keys
+	if err != nil {
+		return fmt.Errorf("error writing API keys json to file: %w", err)
+	}
+	log.Printf("API keys marshaled to JSON and written to %s", filepath)
+	return nil
+}
+
+// Load attempts to unmarshal the JSON data from a file into APIKeys.
+func (a *APIKeys) Load(filepath string) error {
+	jsonData, err := os.ReadFile(filepath)
+	if err != nil {
+		return fmt.Errorf("error reading API keys file: %w", err)
+	}
+	err = json.Unmarshal(jsonData, a)
+	if err != nil {
+		return fmt.Errorf("error unmarshaling API keys JSON: %w", err)
+	}
+	log.Printf("API keys unmarshaled from JSON from %s", filepath)
+	return nil
 }
 
 // ProviderMap is a map of provider IDs to their configuration.
 // This is the top-level structure that will be serialized to JSON.
 type ProviderMap map[string]Provider
 
-func main() {
-	// --- Step 1: Define the provider data in Go, mirroring the JS configuration ---
-
-	// This is the Go representation of your `PROVIDERS` map.
-	providers := ProviderMap{
-		"deepseek": {
-			ID:               "deepseek",
-			DisplayName:      "DeepSeek",
-			Endpoint:         "https://api.deepseek.com/chat/completions",
-			DefaultMaxTokens: 1000,
-			Models: []Model{
-				{ID: "deepseek-chat", DisplayName: "DeepSeek Chat", DefaultTemperature: 0.7},
-				{ID: "deepseek-reasoner", DisplayName: "DeepSeek Reasoner", DefaultTemperature: 0.5},
-			},
-		},
-		"together": {
-			ID:               "together",
-			DisplayName:      "Together.ai",
-			Endpoint:         "https://api.together.xyz/v1/chat/completions",
-			DefaultMaxTokens: 1000,
-			Models: []Model{
-				{ID: "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo", DisplayName: "Meta Llama 3.1 405B", DefaultTemperature: 0.7},
-				{ID: "mistralai/Mixtral-8x22B-Instruct-v0.1", DisplayName: "Mixtral 8x22B", DefaultTemperature: 0.8},
-				{ID: "microsoft/WizardLM-2-8x22B", DisplayName: "WizardLM 2 8x22B", DefaultTemperature: 0.7},
-				{ID: "Qwen/Qwen2.5-72B-Instruct-Turbo", DisplayName: "Qwen 2.5 72B", DefaultTemperature: 0.6},
-			},
-		},
-		"gemini": {
-			ID:               "gemini",
-			DisplayName:      "Google Gemini",
-			Endpoint:         "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
-			DefaultMaxTokens: 1000,
-			Models: []Model{
-				{ID: "gemini-2.5-pro-preview-05-06", DisplayName: "Gemini 2.5 Pro", DefaultTemperature: 0.7},
-				{ID: "gemini-2.5-flash-preview-04-17", DisplayName: "Gemini 2.5 Flash", DefaultTemperature: 0.7},
-			},
-		},
-	}
-
-	// --- Step 2: Serialize (Marshal) the Go data to JSON and save to a file ---
-
-	configFileName := "providers.json"
-
-	// Marshal the data with indentation for readability.
-	jsonData, err := json.MarshalIndent(providers, "", "  ")
+// Store serializes the provider map to JSON and writes it to a json file
+func (p *ProviderMap) Store(filepath string) error {
+	jsonData, err := json.MarshalIndent(p, "", "  ")
 	if err != nil {
-		log.Fatalf("Error marshaling to JSON: %v", err)
+		return fmt.Errorf("error marshaling providers: %w", err)
 	}
-
-	// Write the JSON data to a file on the server.
-	err = os.WriteFile(configFileName, jsonData, 0644) // 0644 are standard file permissions
+	// write the JSON data to providers.json
+	if filepath == "" {
+		filepath = "providers.json"
+	}
+	err = os.WriteFile(filepath, jsonData, 0644)
 	if err != nil {
-		log.Fatalf("Error writing JSON to file: %v", err)
+		return fmt.Errorf("error writing providers map json to file: %w", err)
 	}
+	log.Printf("Providers marshaled to JSON and written to %s", filepath)
+	return nil
+}
 
-	fmt.Printf("✅ Successfully wrote provider configuration to %s\n\n", configFileName)
-
-	// --- Step 3: Read from the file and Deserialize (Unmarshal) back into Go structs ---
-
-	// Clear the variable to prove we are loading from the file.
-	var loadedProviders ProviderMap
-
-	// Read the raw bytes from the file.
-	fileBytes, err := os.ReadFile(configFileName)
+// Load attempts to unmarshal the JSON data from a json into a ProviderMap.
+func (p *ProviderMap) Load(filepath string) error {
+	jsonData, err := os.ReadFile(filepath)
 	if err != nil {
-		log.Fatalf("Error reading from file: %v", err)
+		return fmt.Errorf("error reading file: %w", err)
 	}
-
-	// Unmarshal the JSON bytes into our Go struct.
-	err = json.Unmarshal(fileBytes, &loadedProviders)
+	err = json.Unmarshal(jsonData, p)
 	if err != nil {
-		log.Fatalf("Error unmarshaling JSON: %v", err)
+		return fmt.Errorf("error unmarshaling JSON: %w", err)
 	}
-
-	fmt.Printf("✅ Successfully loaded and parsed %s\n\n", configFileName)
-
-	// --- Step 4: Use the loaded data ---
-
-	// You can now access the configuration data as if it were defined in Go.
-	// Let's test it.
-	geminiProvider := loadedProviders["gemini"]
-	fmt.Printf("Loaded Gemini Provider:\n")
-	fmt.Printf("  Display Name: %s\n", geminiProvider.DisplayName)
-	fmt.Printf("  Endpoint: %s\n", geminiProvider.Endpoint)
-	fmt.Printf("  First Model: %s\n", geminiProvider.Models[0].DisplayName)
-
-	// Test the APIKeyName() method
-	fmt.Printf("  API Key Name: %s\n", geminiProvider.APIKeyName())
+	log.Printf("Providers unmarshaled from JSON from %s", filepath)
+	return nil
 }

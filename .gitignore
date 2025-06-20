@@ -4,6 +4,9 @@ pushio.py
 # ignore generated providers file
 providers.json
 
+# ignore apikeys
+apikeys.json
+
 # Go specific ignores
 # Binaries for programs and plugins
 *.exe
