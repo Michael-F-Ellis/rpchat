@@ -25,6 +25,15 @@ type Provider struct {
 	DefaultMaxTokens int     `json:"defaultMaxTokens"`
 }
 
+func (p *Provider) GetModel(modelID string) (*Model, error) {
+	for _, model := range p.Models {
+		if model.ID == modelID {
+			return &model, nil
+		}
+	}
+	return nil, fmt.Errorf("model not found: %s", modelID)
+}
+
 // APIKeys is a map of provider IDs to their API keys. We use a separate struct to
 // allow provider maps to be shared without exposing the API keys.
 type APIKeys struct {

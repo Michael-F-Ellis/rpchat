@@ -1,49 +1,9 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"io"
 	"log"
-	"net/http"
 	"time"
 )
-
-// Message represents a chat message for the API request
-type Message struct {
-	Role    string `json:"role"`
-	Content string `json:"content"`
-}
-
-// ChatRequest represents the request body for OpenAI-compatible APIs
-type ChatRequest struct {
-	Model       string    `json:"model"`
-	Messages    []Message `json:"messages"`
-	Temperature float64   `json:"temperature"`
-	MaxTokens   int       `json:"max_tokens,omitempty"`
-	Stream      bool      `json:"stream,omitempty"`
-}
-
-// ChatResponse represents the common fields in OpenAI-compatible API responses
-type ChatResponse struct {
-	ID      string `json:"id"`
-	Object  string `json:"object"`
-	Created int    `json:"created"`
-	Model   string `json:"model"`
-	Choices []struct {
-		Message struct {
-			Role    string `json:"role"`
-			Content string `json:"content"`
-		} `json:"message"`
-		FinishReason string `json:"finish_reason"`
-	} `json:"choices"`
-	Usage struct {
-		PromptTokens     int `json:"prompt_tokens"`
-		CompletionTokens int `json:"completion_tokens"`
-		TotalTokens      int `json:"total_tokens"`
-	} `json:"usage"`
-}
 
 // ValidationResult stores the result of a model validation
 type ValidationResult struct {
@@ -82,11 +42,7 @@ func ValidateAllProviders(providersFile, apiKeysFile string) []ValidationResult 
 	}
 
 	results := []ValidationResult{}
-
-	// HTTP client with timeout
-	client := &http.Client{
-		Timeout: 30 * time.Second,
-	}
+	client := NewChatClient()
 
 	// Test each provider and model
 	for providerID, provider := range providers {
@@ -106,83 +62,16 @@ func ValidateAllProviders(providersFile, apiKeysFile string) []ValidationResult 
 				Model:    model.DisplayName,
 			}
 
-			startTime := time.Now()
+			// Use the SimpleChat method to send a test message
+			response, err, duration := client.SimpleChat(provider, model, apiKey, "Say 'Hello'")
+			result.Duration = duration
 
-			// Prepare request
-			chatRequest := ChatRequest{
-				Model:       model.ID,
-				Messages:    []Message{{Role: "user", Content: "Say 'Hello'"}},
-				Temperature: model.DefaultTemperature,
-				MaxTokens:   100,
-			}
-
-			jsonData, err := json.Marshal(chatRequest)
 			if err != nil {
 				result.Success = false
-				result.ErrorMessage = fmt.Sprintf("Failed to marshal request: %v", err)
-				results = append(results, result)
-				continue
-			}
-
-			// Create request
-			req, err := http.NewRequest("POST", provider.Endpoint, bytes.NewBuffer(jsonData))
-			if err != nil {
-				result.Success = false
-				result.ErrorMessage = fmt.Sprintf("Failed to create request: %v", err)
-				results = append(results, result)
-				continue
-			}
-
-			// Set headers
-			req.Header.Set("Content-Type", "application/json")
-			req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiKey))
-
-			// Execute request
-			resp, err := client.Do(req)
-			if err != nil {
-				result.Success = false
-				result.ErrorMessage = fmt.Sprintf("Request failed: %v", err)
-				results = append(results, result)
-				continue
-			}
-			defer resp.Body.Close()
-
-			// Read response
-			body, err := io.ReadAll(resp.Body)
-			if err != nil {
-				result.Success = false
-				result.ErrorMessage = fmt.Sprintf("Failed to read response: %v", err)
-				results = append(results, result)
-				continue
-			}
-
-			result.Duration = time.Since(startTime)
-
-			// Check if response is success
-			if resp.StatusCode != http.StatusOK {
-				result.Success = false
-				result.ErrorMessage = fmt.Sprintf("API returned status code %d: %s", resp.StatusCode, string(body))
-				results = append(results, result)
-				continue
-			}
-
-			// Parse response
-			var chatResponse ChatResponse
-			err = json.Unmarshal(body, &chatResponse)
-			if err != nil {
-				result.Success = false
-				result.ErrorMessage = fmt.Sprintf("Failed to parse response: %v\nResponse body: %s", err, string(body))
-				results = append(results, result)
-				continue
-			}
-
-			// Check if we got a valid message
-			if len(chatResponse.Choices) == 0 {
-				result.Success = false
-				result.ErrorMessage = "No choices returned in response"
+				result.ErrorMessage = err.Error()
 			} else {
 				result.Success = true
-				result.Response = chatResponse.Choices[0].Message.Content
+				result.Response = response.Choices[0].Message.Content
 				log.Printf("Success! Response: %s", result.Response)
 			}
 

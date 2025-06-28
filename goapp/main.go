@@ -1,7 +1,7 @@
 package main
 
 import (
-	"bytes"
+	"bufio"
 	"flag"
 	"fmt"
 	"log"
@@ -11,6 +11,10 @@ import (
 func main() {
 	// Add command line flags
 	validateFlag := flag.Bool("validate", false, "Validate all providers and models")
+	configFileFlag := flag.String("config", "providers.json", "Specify a config file to use")
+	providerFlag := flag.String("provider", "gemini", "Specify a provider to use")
+	modelFlag := flag.String("model", "gemini-2.5-flash-preview-04-17", "Specify a model to use")
+	serveFlag := flag.Bool("serve", false, "Serve the chat API over https if true. Otherwise, chat via command line.")
 	flag.Parse()
 
 	// Run validation if requested
@@ -25,34 +29,125 @@ func main() {
 	}
 	// Otherwise run your normal application code
 	var providersMap = ProviderMap{}
-	err = providersMap.Load("default_providers.json")
+	err = providersMap.Load(*configFileFlag)
 	if err != nil {
 		log.Fatalf("Error unmarshaling providers: %v", err)
 	}
-
-	configFileName := "providers.json"
-	// Marshal the data with indentation for readability.
-	err = providersMap.Store(configFileName)
+	APIKeysMap := APIKeys{}
+	err = APIKeysMap.Load("apikeys.json")
 	if err != nil {
-		log.Fatalf("Error marshaling providers: %v", err)
+		log.Fatalf("Error unmarshaling API keys: %v", err)
 	}
 
-	originalData, err := os.ReadFile("default_providers.json")
+	provider, ok := providersMap[*providerFlag]
+	if !ok {
+		log.Fatalf("Error: provider %s not found", *providerFlag)
+	}
+	model, err := provider.GetModel(*modelFlag)
 	if err != nil {
-		log.Fatalf("Error reading original file: %v", err)
+		log.Fatalf("Error getting model: %v", err)
 	}
 
-	newData, err := os.ReadFile("providers.json")
+	apiKey, err := APIKeysMap.Get(*providerFlag)
 	if err != nil {
-		log.Fatalf("Error reading new file: %v", err)
+		log.Fatalf("Error getting API key: %v", err)
 	}
 
-	if bytes.Equal(originalData, newData) {
-		fmt.Println("✅ The new file matches the original.")
-	} else {
-		fmt.Println("❌ The new file does not match the original.")
+	fmt.Printf("Provider: %v\n", provider)
+	fmt.Printf("Model: %v\n", model)
+	fmt.Printf("API Key: %s\n", apiKey)
+
+	if *serveFlag {
+		ServeChatAPI(provider, *model, apiKey)
+		return
+	}
+	// Enter a command line evaluation loop here that uses the provider, model, and API key
+	// to chat with the model via the API. User should be able to terminate the chat with Ctrl+C.
+	chatWithModel(provider, *model, apiKey, "You are a helpful assistant.")
+}
+
+// chatWithModel implements an interactive chat loop with the specified model
+func chatWithModel(provider Provider, model Model, apiKey string, systemPrompt string) {
+	fmt.Println("Starting chat session. Type 'exit' or 'quit' to end the conversation.")
+	fmt.Println("Enter your message:")
+
+	// Initialize the chat client
+	client := NewChatClient()
+
+	// Keep track of the conversation history
+	messages := []Message{}
+
+	// Add system prompt if provided
+	if systemPrompt != "" {
+		messages = append(messages, Message{
+			Role:    "system",
+			Content: systemPrompt,
+		})
+		fmt.Printf("System: %s\n", systemPrompt)
 	}
 
-	fmt.Printf("✅ Successfully loaded and parsed %s\n\n", configFileName)
-	log.Fatal("main is not implemented.")
+	// Input scanner
+	scanner := bufio.NewScanner(os.Stdin)
+
+	// Main chat loop
+	for {
+		fmt.Print("\nYou: ")
+		if !scanner.Scan() {
+			break // Handle Ctrl+D
+		}
+
+		userInput := scanner.Text()
+
+		// Check for exit commands
+		if userInput == "exit" || userInput == "quit" {
+			fmt.Println("Ending chat session.")
+			break
+		}
+
+		// Add user message to history
+		messages = append(messages, Message{
+			Role:    "user",
+			Content: userInput,
+		})
+
+		// Create chat request
+		req := client.AssembleRequest(
+			model.ID,
+			model.DefaultTemperature,
+			provider.DefaultMaxTokens,
+			messages,
+		)
+
+		// Send request to API
+		fmt.Println("\nWaiting for response...")
+		response, err, duration := client.SendRequest(req, provider, apiKey)
+
+		if err != nil {
+			fmt.Printf("Error: %v\n", err)
+			continue
+		}
+
+		// Get the assistant's response
+		if len(response.Choices) > 0 {
+			assistantMsg := response.Choices[0].Message.Content
+			fmt.Printf("\n%s: %s\n", model.DisplayName, assistantMsg)
+
+			// Add assistant message to history
+			messages = append(messages, Message{
+				Role:    "assistant",
+				Content: assistantMsg,
+			})
+
+			// Print some debug info
+			fmt.Printf("\n[Response time: %.2fs, Tokens: %d]\n",
+				duration.Seconds(),
+				response.Usage.TotalTokens)
+		} else {
+			fmt.Println("Error: No response from model")
+		}
+	}
+
+	if scanner.Err() != nil {
+		fmt.Printf("Scanner error: %v\n", scanner.Err())
+	}
 }
