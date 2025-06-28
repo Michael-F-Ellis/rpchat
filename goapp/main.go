@@ -58,7 +58,7 @@ func main() {
 	fmt.Printf("API Key: %s\n", apiKey)
 
 	if *serveFlag {
-		ServeChatAPI(provider, *model, apiKey)
+		ServeChatAPI(providersMap, APIKeysMap, provider, *model, apiKey)
 		return
 	}
 	// Enter a command line evaluation loop here that uses the provider, model, and API key

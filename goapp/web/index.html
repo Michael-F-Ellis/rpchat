@@ -1834,27 +1834,15 @@ Avoid:
 			// Initial button state
 			updateSendButtonState();
 
-			// Log server info to console
-			logServerInfo();
+			// Load server state and update UI
+			loadServerState();
 
 		}
 
 		// Handle provider change
 		function handleProviderChange(event) {
-			currentProvider = event.target.value;
-			sessionStorage.setItem('apiProvider', currentProvider);
-
-			// Update model selector for new provider
-			updateModelSelector();
-
-			// Update API key input
-			if (apiKeys[getProvider().apiKeyName]) {
-				El.apiKeyInput.value = '********'; // Masked
-			} else {
-				El.apiKeyInput.value = '';
-			}
-
-			showStatus(`Provider changed to ${getProvider().displayName}`);
+			const providerId = event.target.value;
+			handleServerProviderChange(providerId);
 		}
 
 		// Handle saving API key
@@ -1880,18 +1868,8 @@ Avoid:
 
 		// Handle model change
 		function handleModelChange(event) {
-			selectedModelId = event.target.value;
-			sessionStorage.setItem('selectedModelId', selectedModelId);
-
-			// Update temperature with model default
-			const model = getProvider().getModel(selectedModelId);
-			if (model) {
-				temperature = model.defaultTemperature;
-				El.temperatureInput.value = temperature;
-				sessionStorage.setItem('temperature', temperature);
-			}
-
-			showStatus(`Model changed to ${model?.displayName || selectedModelId}`);
+			const modelId = event.target.value;
+			handleServerModelChange(modelId);
 		}
 
 		// Handle temperature change
@@ -2103,8 +2081,8 @@ Avoid:
 			}
 		}
 
-		// Fetch and log server info
-		function logServerInfo() {
+		// Fetch server info and update UI
+		function loadServerState() {
 			fetch('http://localhost:8080/api/info')
 				.then(response => {
 					if (!response.ok) {
@@ -2116,10 +2094,127 @@ Avoid:
 					console.log('Go Server Info:', info);
 					console.log(`Provider: ${info.provider}, Model: ${info.model} (${info.model_id})`);
 					console.log(`Default Temperature: ${info.temperature}, Max Tokens: ${info.max_tokens}`);
+					
+					// Update the UI with server state
+					updateUIFromServerState(info);
 				})
 				.catch(error => {
 					console.warn('Could not fetch server info:', error.message);
+					showStatus('Failed to connect to server. Please ensure the Go server is running.', 'error');
 				});
+		}
+
+		// Update UI dropdowns from server state
+		function updateUIFromServerState(serverInfo) {
+			// Update provider dropdown
+			const providerSelect = El.providerSelector;
+			if (providerSelect) {
+				// Clear existing options
+				providerSelect.innerHTML = '';
+				
+				// Add available providers from server
+				if (serverInfo.available_providers) {
+					for (const [providerId, provider] of Object.entries(serverInfo.available_providers)) {
+						const option = document.createElement('option');
+						option.value = providerId;
+						option.textContent = provider.displayName;
+						if (providerId === serverInfo.provider_id) {
+							option.selected = true;
+						}
+						providerSelect.appendChild(option);
+					}
+				}
+			}
+
+			// Update model dropdown
+			updateModelDropdown(serverInfo.provider_id, serverInfo.model_id, serverInfo.available_providers);
+		}
+
+		// Update model dropdown based on selected provider
+		function updateModelDropdown(selectedProviderId, selectedModelId, availableProviders) {
+			const modelSelect = El.modelSelector;
+			if (!modelSelect || !availableProviders || !selectedProviderId) return;
+
+			// Clear existing options
+			modelSelect.innerHTML = '';
+
+			const provider = availableProviders[selectedProviderId];
+			if (provider && provider.models) {
+				for (const model of provider.models) {
+					const option = document.createElement('option');
+					option.value = model.id;
+					option.textContent = model.displayName;
+					if (model.id === selectedModelId) {
+						option.selected = true;
+					}
+					modelSelect.appendChild(option);
+				}
+			}
+		}
+
+		// Handle provider change - send to server
+		function handleServerProviderChange(providerId) {
+			fetch('http://localhost:8080/api/provider', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ provider_id: providerId })
+			})
+			.then(response => {
+				if (!response.ok) {
+					return response.json().then(errorData => {
+						throw new Error(errorData.error || `Server error: ${response.status}`);
+					});
+				}
+				return response.json();
+			})
+			.then(data => {
+				console.log('Provider changed successfully:', data);
+				showStatus(`Switched to provider: ${data.provider}`);
+				
+				// Reload server state to update the entire UI
+				loadServerState();
+			})
+			.catch(error => {
+				console.error('Failed to change provider:', error);
+				alert(`Failed to change provider: ${error.message}`);
+				showStatus('Failed to change provider', 'error');
+				
+				// Reload server state to revert UI
+				loadServerState();
+			});
+		}
+
+		// Handle model change - send to server
+		function handleServerModelChange(modelId) {
+			fetch('http://localhost:8080/api/model', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify({ model_id: modelId })
+			})
+			.then(response => {
+				if (!response.ok) {
+					return response.json().then(errorData => {
+						throw new Error(errorData.error || `Server error: ${response.status}`);
+					});
+				}
+				return response.json();
+			})
+			.then(data => {
+				console.log('Model changed successfully:', data);
+				showStatus(`Switched to model: ${data.model}`);
+			})
+			.catch(error => {
+				console.error('Failed to change model:', error);
+				alert(`Failed to change model: ${error.message}`);
+				showStatus('Failed to change model', 'error');
+				
+				// Reload server state to revert UI
+				loadServerState();
+			});
 		}
 
 		// Initialize the application

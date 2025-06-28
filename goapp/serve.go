@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
+	"sync"
 )
 
 // ChatRequest represents a request to the chat API
@@ -22,10 +24,117 @@ type APIResponse struct {
 	Error    string `json:"error,omitempty"`
 }
 
+// ServerState holds the current server configuration that can be changed at runtime
+type ServerState struct {
+	mu                 sync.RWMutex
+	currentProvider    Provider
+	currentModel       Model
+	currentAPIKey      string
+	availableProviders ProviderMap
+	apiKeys            APIKeys
+	client             *ChatClient
+}
+
+// NewServerState creates a new server state with validated providers
+func NewServerState(providersMap ProviderMap, apiKeys APIKeys, initialProvider Provider, initialModel Model, initialAPIKey string) *ServerState {
+	// Filter providers to only include those with valid API keys
+	validProviders := make(ProviderMap)
+	for providerID, provider := range providersMap {
+		apiKey, err := apiKeys.Get(providerID)
+		if err == nil && !isDummyAPIKey(apiKey) {
+			validProviders[providerID] = provider
+		}
+	}
+
+	return &ServerState{
+		currentProvider:    initialProvider,
+		currentModel:       initialModel,
+		currentAPIKey:      initialAPIKey,
+		availableProviders: validProviders,
+		apiKeys:            apiKeys,
+		client:             NewChatClient(),
+	}
+}
+
+// isDummyAPIKey checks if an API key is a placeholder/dummy value
+func isDummyAPIKey(apiKey string) bool {
+	if apiKey == "" {
+		return true
+	}
+	// Check for common dummy patterns
+	dummy := strings.ToLower(apiKey)
+	return strings.Contains(dummy, "your") ||
+		strings.Contains(dummy, "dummy") ||
+		strings.Contains(dummy, "placeholder") ||
+		strings.Contains(dummy, "replace") ||
+		apiKey == "sk-..." ||
+		len(apiKey) < 10 // Very short keys are likely dummy
+}
+
+// SetProvider changes the current provider and validates the current model
+func (s *ServerState) SetProvider(providerID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	provider, exists := s.availableProviders[providerID]
+	if !exists {
+		return fmt.Errorf("provider %s not found or not available", providerID)
+	}
+
+	apiKey, err := s.apiKeys.Get(providerID)
+	if err != nil {
+		return fmt.Errorf("no API key for provider %s", providerID)
+	}
+
+	s.currentProvider = provider
+	s.currentAPIKey = apiKey
+
+	// Check if current model is available for this provider
+	_, err = provider.GetModel(s.currentModel.ID)
+	if err != nil {
+		// If current model not available, switch to first available model
+		if len(provider.Models) > 0 {
+			s.currentModel = provider.Models[0]
+		} else {
+			return fmt.Errorf("provider %s has no available models", providerID)
+		}
+	}
+
+	return nil
+}
+
+// SetModel changes the current model if it's available for the current provider
+func (s *ServerState) SetModel(modelID string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	model, err := s.currentProvider.GetModel(modelID)
+	if err != nil {
+		return fmt.Errorf("model %s not available for provider %s", modelID, s.currentProvider.ID)
+	}
+
+	s.currentModel = *model
+	return nil
+}
+
+// GetCurrentState returns the current provider, model, and API key (thread-safe)
+func (s *ServerState) GetCurrentState() (Provider, Model, string) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.currentProvider, s.currentModel, s.currentAPIKey
+}
+
+// GetAvailableProviders returns the map of available providers (thread-safe)
+func (s *ServerState) GetAvailableProviders() ProviderMap {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.availableProviders
+}
+
 // ServeChatAPI sets up and runs an HTTP server that provides a chat API
-func ServeChatAPI(provider Provider, model Model, apiKey string) {
-	// Initialize the chat client
-	client := NewChatClient()
+func ServeChatAPI(providersMap ProviderMap, apiKeys APIKeys, initialProvider Provider, initialModel Model, initialAPIKey string) {
+	// Initialize server state
+	serverState := NewServerState(providersMap, apiKeys, initialProvider, initialModel, initialAPIKey)
 
 	// Handler for chat requests
 	http.HandleFunc("/api/chat", func(w http.ResponseWriter, r *http.Request) {
@@ -55,10 +164,14 @@ func ServeChatAPI(provider Provider, model Model, apiKey string) {
 			return
 		}
 
+		// Get current state
+		provider, model, apiKey := serverState.GetCurrentState()
+
 		// Set default values if not provided
 		if req.Temperature == 0 {
 			req.Temperature = model.DefaultTemperature
 		}
+		log.Printf("Request temperature = %f", req.Temperature)
 		if req.MaxTokens == 0 {
 			req.MaxTokens = provider.DefaultMaxTokens
 		}
@@ -72,14 +185,14 @@ func ServeChatAPI(provider Provider, model Model, apiKey string) {
 		log.Printf("Received chat request with %d messages", len(req.Messages))
 
 		// Create and send chat request to the AI provider
-		chatReq := client.AssembleRequest(
+		chatReq := serverState.client.AssembleRequest(
 			model.ID,
 			req.Temperature,
 			req.MaxTokens,
 			req.Messages,
 		)
 
-		response, err, duration := client.SendRequest(chatReq, provider, apiKey)
+		response, err, duration := serverState.client.SendRequest(chatReq, provider, apiKey)
 		if err != nil {
 			log.Printf("Error from AI provider: %v", err)
 			sendErrorResponse(w, fmt.Sprintf("Error from AI provider: %v", err), http.StatusInternalServerError)
@@ -112,12 +225,18 @@ func ServeChatAPI(provider Provider, model Model, apiKey string) {
 		w.Header().Set("Content-Type", "application/json")
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 
+		// Get current state
+		provider, model, _ := serverState.GetCurrentState()
+		availableProviders := serverState.GetAvailableProviders()
+
 		info := map[string]interface{}{
-			"provider":    provider.DisplayName,
-			"model":       model.DisplayName,
-			"model_id":    model.ID,
-			"temperature": model.DefaultTemperature,
-			"max_tokens":  provider.DefaultMaxTokens,
+			"provider":            provider.DisplayName,
+			"provider_id":         provider.ID,
+			"model":               model.DisplayName,
+			"model_id":            model.ID,
+			"temperature":         model.DefaultTemperature,
+			"max_tokens":          provider.DefaultMaxTokens,
+			"available_providers": availableProviders,
 		}
 
 		if err := json.NewEncoder(w).Encode(info); err != nil {
@@ -125,11 +244,120 @@ func ServeChatAPI(provider Provider, model Model, apiKey string) {
 		}
 	})
 
+	// Handler for changing provider
+	http.HandleFunc("/api/provider", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != "POST" {
+			sendErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			ProviderID string `json:"provider_id"`
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		if err := decoder.Decode(&req); err != nil {
+			sendErrorResponse(w, "Invalid request format", http.StatusBadRequest)
+			return
+		}
+
+		if req.ProviderID == "" {
+			sendErrorResponse(w, "provider_id is required", http.StatusBadRequest)
+			return
+		}
+
+		err := serverState.SetProvider(req.ProviderID)
+		if err != nil {
+			log.Printf("Error setting provider: %v", err)
+			sendErrorResponse(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Get updated state and return it
+		provider, model, _ := serverState.GetCurrentState()
+		response := map[string]interface{}{
+			"success":     true,
+			"provider":    provider.DisplayName,
+			"provider_id": provider.ID,
+			"model":       model.DisplayName,
+			"model_id":    model.ID,
+		}
+
+		log.Printf("Provider changed to: %s, Model: %s", provider.DisplayName, model.DisplayName)
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	})
+
+	// Handler for changing model
+	http.HandleFunc("/api/model", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != "POST" {
+			sendErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		var req struct {
+			ModelID string `json:"model_id"`
+		}
+
+		decoder := json.NewDecoder(r.Body)
+		if err := decoder.Decode(&req); err != nil {
+			sendErrorResponse(w, "Invalid request format", http.StatusBadRequest)
+			return
+		}
+
+		if req.ModelID == "" {
+			sendErrorResponse(w, "model_id is required", http.StatusBadRequest)
+			return
+		}
+
+		err := serverState.SetModel(req.ModelID)
+		if err != nil {
+			log.Printf("Error setting model: %v", err)
+			sendErrorResponse(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+
+		// Get updated state and return it
+		provider, model, _ := serverState.GetCurrentState()
+		response := map[string]interface{}{
+			"success":     true,
+			"provider":    provider.DisplayName,
+			"provider_id": provider.ID,
+			"model":       model.DisplayName,
+			"model_id":    model.ID,
+		}
+
+		log.Printf("Model changed to: %s", model.DisplayName)
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(response)
+	})
+
 	// Serve static files from the web directory if it exists
 	http.Handle("/", http.FileServer(http.Dir("./web")))
 
 	// Start the server
 	port := ":8080" // You might want to make this configurable
+	provider, model, _ := serverState.GetCurrentState()
 	log.Printf("Starting server on %s", port)
 	log.Printf("API available at http://localhost%s/api/chat", port)
 	log.Printf("Model: %s, Provider: %s", model.DisplayName, provider.DisplayName)
