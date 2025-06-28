@@ -1834,6 +1834,9 @@ Avoid:
 			// Initial button state
 			updateSendButtonState();
 
+			// Log server info to console
+			logServerInfo();
+
 		}
 
 		// Handle provider change
@@ -1929,14 +1932,6 @@ Avoid:
 				return;
 			}
 
-			const provider = getProvider();
-			const apiKey = apiKeys[provider.apiKeyName];
-
-			if (!apiKey) {
-				showStatus('Please enter and save an API key first', 'error');
-				return;
-			}
-
 			// Start processing
 			isProcessing = true;
 			El.sendButton.disabled = true;
@@ -1949,10 +1944,8 @@ Avoid:
 			callAPI(apiMessages);
 		}
 
-		// Call AI provider API
+		// Call Go server API
 		function callAPI(apiMessages) {
-			const provider = getProvider();
-			const apiKey = apiKeys[provider.apiKeyName];
 			// Start the timer when API call begins
 			const startTime = Date.now();
 			const timerInterval = setInterval(() => {
@@ -1964,25 +1957,63 @@ Avoid:
 				El.sendLabel.textContent = `Waiting for response... ${elapsedSeconds.toString().padStart(2, '0')}`;
 			}, 1000);
 
-			// Prepare request body
-			const requestBody = provider.prepareRequestBody(
-				selectedModelId,
-				apiMessages,
-				null, // use default max tokens
-				temperature
-			);
+			// Prepare request body for Go server API
+			const requestBody = {
+				messages: apiMessages,
+				temperature: temperature || 0.7
+			};
 
-			// Make API call using the API module
-			window.RPChat.api.sendRequest(
-				provider.endpoint,
-				apiKey,
-				requestBody,
-				handleApiResponse,
-				handleApiError
-			);
+			// Make API call to Go server
+			fetch('http://localhost:8080/api/chat', {
+				method: 'POST',
+				headers: {
+					'Content-Type': 'application/json'
+				},
+				body: JSON.stringify(requestBody)
+			})
+			.then(response => {
+				if (!response.ok) {
+					return response.json().then(errorData => {
+						throw new Error(errorData.error || `Server error! Status: ${response.status}`)
+					}).catch(() => {
+						throw new Error(`Server error! Status: ${response.status}`)
+					})
+				}
+				return response.json()
+			})
+			.then(data => {
+				handleGoServerResponse(data)
+			})
+			.catch(error => {
+				handleApiError(error)
+			});
 		}
 
-		// Handle successful API response
+		// Handle successful Go server response
+		function handleGoServerResponse(response) {
+			isProcessing = false;
+			El.sendButton.disabled = false;
+
+			try {
+				// Extract response content from Go server response
+				const responseContent = response.message;
+
+				// Add assistant message using ChatManager
+				chatManager.addMessage(ROLES.ASSISTANT, responseContent);
+
+				// Explicitly render the chat to update the UI
+				chatManager.render();
+
+				// Scroll to the bottom to show new message
+				scrollToBottom();
+
+				showStatus('Response received');
+			} catch (error) {
+				handleApiError(error);
+			}
+		}
+
+		// Handle successful API response (legacy - kept for compatibility)
 		function handleApiResponse(response) {
 			isProcessing = false;
 			El.sendButton.disabled = false;
@@ -2070,6 +2101,25 @@ Avoid:
 					}
 				}, timeout);
 			}
+		}
+
+		// Fetch and log server info
+		function logServerInfo() {
+			fetch('http://localhost:8080/api/info')
+				.then(response => {
+					if (!response.ok) {
+						throw new Error(`Server info request failed: ${response.status}`);
+					}
+					return response.json();
+				})
+				.then(info => {
+					console.log('Go Server Info:', info);
+					console.log(`Provider: ${info.provider}, Model: ${info.model} (${info.model_id})`);
+					console.log(`Default Temperature: ${info.temperature}, Max Tokens: ${info.max_tokens}`);
+				})
+				.catch(error => {
+					console.warn('Could not fetch server info:', error.message);
+				});
 		}
 
 		// Initialize the application
