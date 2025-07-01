@@ -199,6 +199,10 @@ func ServeChatAPI(providersMap ProviderMap, apiKeys APIKeys, initialProvider Pro
 			return
 		}
 
+		// Log usage statistics
+		log.Printf("Usage: prompt_tokens=%d, completion_tokens=%d, total_tokens=%d", 
+			response.Usage.PromptTokens, response.Usage.CompletionTokens, response.Usage.TotalTokens)
+
 		// Prepare response
 		apiResp := APIResponse{
 			Message:  response.Choices[0].Message.Content,
