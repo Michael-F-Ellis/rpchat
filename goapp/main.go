@@ -13,7 +13,7 @@ func main() {
 	validateFlag := flag.Bool("validate", false, "Validate all providers and models")
 	configFileFlag := flag.String("config", "providers.json", "Specify a config file to use")
 	providerFlag := flag.String("provider", "gemini", "Specify a provider to use")
-	modelFlag := flag.String("model", "gemini-2.5-flash-preview-04-17", "Specify a model to use")
+	modelFlag := flag.String("model", "gemini-2.5-flash", "Specify a model to use")
 	serveFlag := flag.Bool("serve", false, "Serve the chat API over https if true. Otherwise, chat via command line.")
 	flag.Parse()
 
@@ -116,6 +116,7 @@ func chatWithModel(provider Provider, model Model, apiKey string, systemPrompt s
 			model.DefaultTemperature,
 			provider.DefaultMaxTokens,
 			messages,
+			model.ExtraFields,
 		)
 
 		// Send request to API

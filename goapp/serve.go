@@ -190,6 +190,7 @@ func ServeChatAPI(providersMap ProviderMap, apiKeys APIKeys, initialProvider Pro
 			req.Temperature,
 			req.MaxTokens,
 			req.Messages,
+			model.ExtraFields,
 		)
 
 		response, err, duration := serverState.client.SendRequest(chatReq, provider, apiKey)

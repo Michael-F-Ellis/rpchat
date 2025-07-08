@@ -10,9 +10,10 @@ import (
 // Model corresponds to the AIModel class in JavaScript.
 // It holds the configuration for a specific AI model.
 type Model struct {
-	ID                 string  `json:"id"`
-	DisplayName        string  `json:"displayName"`
-	DefaultTemperature float64 `json:"defaultTemperature"`
+	ID                 string                     `json:"id"`
+	DisplayName        string                     `json:"displayName"`
+	DefaultTemperature float64                    `json:"defaultTemperature"`
+	ExtraFields        map[string]json.RawMessage `json:"extraFields,omitempty"`
 }
 
 // Provider corresponds to the AIProvider class in JavaScript.

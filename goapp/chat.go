@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 	"time"
 )
 
@@ -59,13 +60,38 @@ func NewChatClient() *ChatClient {
 }
 
 // AssembleRequest creates a ChatRequest with the provided parameters
-func (c *ChatClient) AssembleRequest(modelID string, temperature float64, maxTokens int, messages []Message) *ChatRequest {
-	return &ChatRequest{
+func (c *ChatClient) AssembleRequest(modelID string, temperature float64, maxTokens int, messages []Message, extraFields map[string]json.RawMessage) *ChatRequest {
+	req := &ChatRequest{
 		Model:       modelID,
 		Messages:    messages,
 		Temperature: temperature,
 		MaxTokens:   maxTokens,
 	}
+
+	// Merge extra fields into the request
+	if len(extraFields) > 0 {
+		// Log the extra fields being sent
+		extraFieldsJSON, _ := json.Marshal(extraFields)
+		fmt.Printf("Sending extra fields: %s\n", string(extraFieldsJSON))
+
+		// Convert request to map for merging
+		reqJSON, _ := json.Marshal(req)
+		var reqMap map[string]interface{}
+		json.Unmarshal(reqJSON, &reqMap)
+
+		// Add extra fields
+		for key, value := range extraFields {
+			var fieldValue interface{}
+			json.Unmarshal(value, &fieldValue)
+			reqMap[key] = fieldValue
+		}
+
+		// Convert back to ChatRequest
+		mergedJSON, _ := json.Marshal(reqMap)
+		json.Unmarshal(mergedJSON, req)
+	}
+
+	return req
 }
 
 // SendRequest sends a chat request to the specified provider
@@ -118,6 +144,16 @@ func (c *ChatClient) SendRequest(req *ChatRequest, provider Provider, apiKey str
 		return nil, fmt.Errorf("no choices returned in response"), time.Since(startTime)
 	}
 
+	// Log full response if finish reason is not STOP
+	if len(chatResponse.Choices) > 0 && strings.ToLower(chatResponse.Choices[0].FinishReason) != "stop" {
+		// Parse raw response as generic map to see all fields
+		var rawResponse map[string]interface{}
+		json.Unmarshal(body, &rawResponse)
+
+		rawJSON, _ := json.MarshalIndent(rawResponse, "", "  ")
+		fmt.Printf("Full response with finish reason '%s':\n%s\n", chatResponse.Choices[0].FinishReason, string(rawJSON))
+	}
+
 	return &chatResponse, nil, time.Since(startTime)
 }
 
@@ -128,6 +164,7 @@ func (c *ChatClient) SimpleChat(provider Provider, model Model, apiKey, message 
 		model.DefaultTemperature,
 		100, // Default max tokens for simple requests
 		[]Message{{Role: "user", Content: message}},
+		model.ExtraFields,
 	)
 
 	return c.SendRequest(req, provider, apiKey)

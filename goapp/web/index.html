@@ -1223,9 +1223,9 @@
 					'Google Gemini',
 					'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
 					[
-						new AIModel('gemini-2.5-pro-preview-05-06', 'Gemini 2.5 Pro', 0.7),
+						new AIModel('gemini-2.5-pro', 'Gemini 2.5 Pro', 0.7),
 						// new AIModel('gemini-2.5-pro-exp-03-25', 'Gemini 2.5 Pro', 0.7),
-						new AIModel('gemini-2.5-flash-preview-04-17', 'Gemini 2.5 Flash', 0.7),
+						new AIModel('gemini-2.5-flash', 'Gemini 2.5 Flash', 0.7),
 					]
 				)]
 			]);
@@ -1949,22 +1949,22 @@ Avoid:
 				},
 				body: JSON.stringify(requestBody)
 			})
-			.then(response => {
-				if (!response.ok) {
-					return response.json().then(errorData => {
-						throw new Error(errorData.error || `Server error! Status: ${response.status}`)
-					}).catch(() => {
-						throw new Error(`Server error! Status: ${response.status}`)
-					})
-				}
-				return response.json()
-			})
-			.then(data => {
-				handleGoServerResponse(data)
-			})
-			.catch(error => {
-				handleApiError(error)
-			});
+				.then(response => {
+					if (!response.ok) {
+						return response.json().then(errorData => {
+							throw new Error(errorData.error || `Server error! Status: ${response.status}`)
+						}).catch(() => {
+							throw new Error(`Server error! Status: ${response.status}`)
+						})
+					}
+					return response.json()
+				})
+				.then(data => {
+					handleGoServerResponse(data)
+				})
+				.catch(error => {
+					handleApiError(error)
+				});
 		}
 
 		// Handle successful Go server response
@@ -2094,7 +2094,7 @@ Avoid:
 					console.log('Go Server Info:', info);
 					console.log(`Provider: ${info.provider}, Model: ${info.model} (${info.model_id})`);
 					console.log(`Default Temperature: ${info.temperature}, Max Tokens: ${info.max_tokens}`);
-					
+
 					// Update the UI with server state
 					updateUIFromServerState(info);
 				})
@@ -2111,7 +2111,7 @@ Avoid:
 			if (providerSelect) {
 				// Clear existing options
 				providerSelect.innerHTML = '';
-				
+
 				// Add available providers from server
 				if (serverInfo.available_providers) {
 					for (const [providerId, provider] of Object.entries(serverInfo.available_providers)) {
@@ -2161,29 +2161,29 @@ Avoid:
 				},
 				body: JSON.stringify({ provider_id: providerId })
 			})
-			.then(response => {
-				if (!response.ok) {
-					return response.json().then(errorData => {
-						throw new Error(errorData.error || `Server error: ${response.status}`);
-					});
-				}
-				return response.json();
-			})
-			.then(data => {
-				console.log('Provider changed successfully:', data);
-				showStatus(`Switched to provider: ${data.provider}`);
-				
-				// Reload server state to update the entire UI
-				loadServerState();
-			})
-			.catch(error => {
-				console.error('Failed to change provider:', error);
-				alert(`Failed to change provider: ${error.message}`);
-				showStatus('Failed to change provider', 'error');
-				
-				// Reload server state to revert UI
-				loadServerState();
-			});
+				.then(response => {
+					if (!response.ok) {
+						return response.json().then(errorData => {
+							throw new Error(errorData.error || `Server error: ${response.status}`);
+						});
+					}
+					return response.json();
+				})
+				.then(data => {
+					console.log('Provider changed successfully:', data);
+					showStatus(`Switched to provider: ${data.provider}`);
+
+					// Reload server state to update the entire UI
+					loadServerState();
+				})
+				.catch(error => {
+					console.error('Failed to change provider:', error);
+					alert(`Failed to change provider: ${error.message}`);
+					showStatus('Failed to change provider', 'error');
+
+					// Reload server state to revert UI
+					loadServerState();
+				});
 		}
 
 		// Handle model change - send to server
@@ -2195,26 +2195,26 @@ Avoid:
 				},
 				body: JSON.stringify({ model_id: modelId })
 			})
-			.then(response => {
-				if (!response.ok) {
-					return response.json().then(errorData => {
-						throw new Error(errorData.error || `Server error: ${response.status}`);
-					});
-				}
-				return response.json();
-			})
-			.then(data => {
-				console.log('Model changed successfully:', data);
-				showStatus(`Switched to model: ${data.model}`);
-			})
-			.catch(error => {
-				console.error('Failed to change model:', error);
-				alert(`Failed to change model: ${error.message}`);
-				showStatus('Failed to change model', 'error');
-				
-				// Reload server state to revert UI
-				loadServerState();
-			});
+				.then(response => {
+					if (!response.ok) {
+						return response.json().then(errorData => {
+							throw new Error(errorData.error || `Server error: ${response.status}`);
+						});
+					}
+					return response.json();
+				})
+				.then(data => {
+					console.log('Model changed successfully:', data);
+					showStatus(`Switched to model: ${data.model}`);
+				})
+				.catch(error => {
+					console.error('Failed to change model:', error);
+					alert(`Failed to change model: ${error.message}`);
+					showStatus('Failed to change model', 'error');
+
+					// Reload server state to revert UI
+					loadServerState();
+				});
 		}
 
 		// Initialize the application
