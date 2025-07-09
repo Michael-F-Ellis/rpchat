@@ -69,7 +69,8 @@
 		/* Make input elements full width of their container */
 		.api-key-container input,
 		.provider-selector select,
-		.model-selector select {
+		.model-selector select,
+		.system-prompt-selector select {
 			width: 100%;
 		}
 
@@ -291,6 +292,12 @@
 					<!-- Options injected at runtime -->
 				</select>
 			</div>
+			<div class="system-prompt-selector">
+				<label for="system-prompt-selector">System Prompt:</label>
+				<select id="system-prompt-selector">
+					<!-- Options injected at runtime -->
+				</select>
+			</div>
 		</header>
 
 		<div id="chat-container" class="chat-container">
@@ -324,6 +331,7 @@
 			apiKeyInput: document.getElementById('api-key'),
 			saveKeyBtn: document.getElementById('save-key'),
 			modelSelector: document.getElementById('model-selector'),
+			systemPromptSelector: document.getElementById('system-prompt-selector'),
 			temperatureInput: document.getElementById('temperature-input'),
 			chatContainer: document.getElementById('chat-container'),
 			sendButton: document.getElementById('send-button'),
@@ -331,6 +339,100 @@
 			statusMessage: document.getElementById('status-message'),
 			sendLabel: document.getElementById('send-label')
 		};
+
+		// Global variable to store system prompts
+		let systemPrompts = [];
+
+		// Function to fetch system prompts from API
+		async function fetchSystemPrompts() {
+			try {
+				const response = await fetch('/api/systemprompts');
+				if (!response.ok) {
+					throw new Error(`HTTP error! status: ${response.status}`);
+				}
+				const data = await response.json();
+				systemPrompts = data.system_prompts || [];
+				updateSystemPromptSelector();
+				return systemPrompts;
+			} catch (error) {
+				console.error('Error fetching system prompts:', error);
+				showStatus('Failed to load system prompts', 'error');
+				return [];
+			}
+		}
+
+		// Function to update the system prompt selector dropdown
+		function updateSystemPromptSelector() {
+			const selector = El.systemPromptSelector;
+			if (!selector) return;
+
+			// Clear existing options
+			selector.innerHTML = '';
+
+			// Add options for each system prompt
+			systemPrompts.forEach((prompt, index) => {
+				const option = document.createElement('option');
+				option.value = index;
+				option.textContent = prompt.name;
+				selector.appendChild(option);
+			});
+
+			// Set the first option as selected
+			if (systemPrompts.length > 0) {
+				selector.selectedIndex = 0;
+			}
+		}
+
+		// Function to get the current system prompt content
+		function getCurrentSystemPrompt() {
+			const selectedIndex = El.systemPromptSelector?.selectedIndex || 0;
+			return systemPrompts[selectedIndex]?.content || 'You are a helpful assistant.';
+		}
+
+		// Function to update the system prompt when selector changes
+		function updateSystemPrompt() {
+			if (!chatManager) return;
+
+			const newSystemPrompt = getCurrentSystemPrompt();
+
+			// Update the system message in the chat manager
+			const messages = chatManager.messages;
+			if (messages.length > 0 && messages[0].role === 'system') {
+				messages[0].content = newSystemPrompt;
+				// Update the DOM element
+				const contentEl = messages[0].element?.querySelector('.editable-content');
+				if (contentEl) {
+					contentEl.textContent = newSystemPrompt;
+				}
+			}
+
+			// Trigger chat update to save changes
+			chatManager._notifyUpdate();
+		}
+
+		// Function to clear chat and reset to first system prompt
+		function clearChat() {
+			if (!chatManager) return;
+
+			// Clear the chat and reinitialize with first system prompt
+			chatManager.clear();
+			El.systemPromptSelector.selectedIndex = 0;
+
+			// Update the system message with the first system prompt
+			const firstSystemPrompt = systemPrompts[0]?.content || 'You are a helpful assistant.';
+			const messages = chatManager.messages;
+			if (messages.length > 0 && messages[0].role === 'system') {
+				messages[0].content = firstSystemPrompt;
+				// Update the DOM element
+				const contentEl = messages[0].element?.querySelector('.editable-content');
+				if (contentEl) {
+					contentEl.textContent = firstSystemPrompt;
+				}
+			}
+
+			// Trigger chat update to save changes
+			chatManager._notifyUpdate();
+		}
 
 		/* Chat Message Class and Constants
 		 *
@@ -1470,11 +1572,14 @@ Avoid:
 		let chatManager = null;
 
 		// Initialize application
-		function init() {	// Load saved state from sessionStorage
+		async function init() {	// Load saved state from sessionStorage
 			loadStateFromStorage();
 
 			// Set up UI elements based on configuration
 			initializeUIElements();
+
+			// Fetch system prompts from API before initializing chat manager
+			await fetchSystemPrompts();
 
 			// Initialize ChatManager with system prompt
 			initializeChatManager();
@@ -1674,6 +1779,37 @@ Avoid:
 			if (temperature !== null) {
 				El.temperatureInput.value = temperature;
 			}
+
+			// Initialize event listeners
+			initializeEventListeners();
+		}
+
+		// Initialize event listeners
+		function initializeEventListeners() {
+			// Initialize temperature input
+			El.temperatureInput.addEventListener('input', debounce(function (e) {
+				const value = parseFloat(e.target.value);
+				if (!isNaN(value) && value >= 0) {
+					console.log('Temperature changed to:', value);
+					// Save to sessionStorage
+					sessionStorage.setItem('temperature', value.toString());
+				}
+			}, 300));
+
+			// Initialize system prompt selector
+			El.systemPromptSelector.addEventListener('change', function () {
+				updateSystemPrompt();
+			});
+
+			// Initialize clear button
+			El.clearChatBtn.addEventListener('click', function () {
+				if (confirm('Are you sure you want to clear the chat?')) {
+					clearChat();
+				}
+			});
+
+			// Initialize send button
+			El.sendButton.addEventListener('click', sendMessage);
 		}
 
 		// Initialize ChatManager
@@ -1681,7 +1817,7 @@ Avoid:
 
 			// Create ChatManager with system prompt and notification handler
 			chatManager = new ChatManager(
-				window.RPChat.config.DEFAULT_SYSTEM_MESSAGE.content,
+				getCurrentSystemPrompt(),
 				showStatus,
 				El.chatContainer,
 				onChatUpdate
