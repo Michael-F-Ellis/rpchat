@@ -1,7 +1,0 @@
-{
-	"map": {
-		"deepseek": "dummy_deepseek_api_key_replace_with_your_actual_key",
-		"gemini": "dummy_gemini_api_key_replace_with_your_actual_key",
-		"together": "dummy_together_api_key_replace_with_your_actual_key"
-	}
-}
