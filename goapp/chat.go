@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -77,18 +78,30 @@ func (c *ChatClient) AssembleRequest(modelID string, temperature float64, maxTok
 		// Convert request to map for merging
 		reqJSON, _ := json.Marshal(req)
 		var reqMap map[string]interface{}
-		json.Unmarshal(reqJSON, &reqMap)
+		err := json.Unmarshal(reqJSON, &reqMap)
+		if err != nil {
+			log.Printf("Can't unmarshal request: %s", reqJSON)
+		}
 
 		// Add extra fields
 		for key, value := range extraFields {
 			var fieldValue interface{}
-			json.Unmarshal(value, &fieldValue)
+			if err := json.Unmarshal(value, &fieldValue); err != nil {
+				log.Printf("Warning: failed to unmarshal extra field %s: %v", key, err)
+				continue
+			}
 			reqMap[key] = fieldValue
 		}
 
 		// Convert back to ChatRequest
-		mergedJSON, _ := json.Marshal(reqMap)
-		json.Unmarshal(mergedJSON, req)
+		mergedJSON, err := json.Marshal(reqMap)
+		if err != nil {
+			log.Printf("Warning: failed to marshal merged request: %v", err)
+		} else {
+			if err := json.Unmarshal(mergedJSON, req); err != nil {
+				log.Printf("Warning: failed to unmarshal merged request: %v", err)
+			}
+		}
 	}
 
 	return req
@@ -148,7 +161,10 @@ func (c *ChatClient) SendRequest(req *ChatRequest, provider Provider, apiKey str
 	if len(chatResponse.Choices) > 0 && strings.ToLower(chatResponse.Choices[0].FinishReason) != "stop" {
 		// Parse raw response as generic map to see all fields
 		var rawResponse map[string]interface{}
-		json.Unmarshal(body, &rawResponse)
+		if err := json.Unmarshal(body, &rawResponse); err != nil {
+			log.Printf("Warning: failed to unmarshal raw response for logging: %v", err)
+			return &chatResponse, nil, time.Since(startTime)
+		}
 
 		rawJSON, _ := json.MarshalIndent(rawResponse, "", "  ")
 		fmt.Printf("Full response with finish reason '%s':\n%s\n", chatResponse.Choices[0].FinishReason, string(rawJSON))

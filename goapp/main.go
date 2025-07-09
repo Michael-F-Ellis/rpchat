@@ -8,6 +8,9 @@ import (
 	"os"
 )
 
+// Global SystemPrompts variable
+var SystemPromptsMap SysPrompts
+
 func main() {
 	// Add command line flags
 	validateFlag := flag.Bool("validate", false, "Validate all providers and models")
@@ -27,6 +30,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("Error initializing default system prompts: %v", err)
 	}
+
 	// Otherwise run your normal application code
 	var providersMap = ProviderMap{}
 	err = providersMap.Load(*configFileFlag)

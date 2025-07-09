@@ -182,6 +182,16 @@ func ServeChatAPI(providersMap ProviderMap, apiKeys APIKeys, initialProvider Pro
 			return
 		}
 
+		// Prepend system prompt if first message is not a system message
+		if req.Messages[0].Role != "system" {
+			systemPrompt := SystemPromptsMap.GetFirst()
+			systemMessage := Message{
+				Role:    "system",
+				Content: systemPrompt,
+			}
+			req.Messages = append([]Message{systemMessage}, req.Messages...)
+		}
+
 		log.Printf("Received chat request with %d messages", len(req.Messages))
 
 		// Create and send chat request to the AI provider
@@ -201,7 +211,7 @@ func ServeChatAPI(providersMap ProviderMap, apiKeys APIKeys, initialProvider Pro
 		}
 
 		// Log usage statistics
-		log.Printf("Usage: prompt_tokens=%d, completion_tokens=%d, total_tokens=%d", 
+		log.Printf("Usage: prompt_tokens=%d, completion_tokens=%d, total_tokens=%d",
 			response.Usage.PromptTokens, response.Usage.CompletionTokens, response.Usage.TotalTokens)
 
 		// Prepare response
@@ -300,7 +310,9 @@ func ServeChatAPI(providersMap ProviderMap, apiKeys APIKeys, initialProvider Pro
 
 		log.Printf("Provider changed to: %s, Model: %s", provider.DisplayName, model.DisplayName)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("Error encoding provider response: %v", err)
+		}
 	})
 
 	// Handler for changing model
@@ -354,7 +366,45 @@ func ServeChatAPI(providersMap ProviderMap, apiKeys APIKeys, initialProvider Pro
 
 		log.Printf("Model changed to: %s", model.DisplayName)
 		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(response)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("Error encoding model response: %v", err)
+		}
+	})
+
+	// Handler for getting system prompts
+	http.HandleFunc("/api/systemprompts", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == "OPTIONS" {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != "GET" {
+			sendErrorResponse(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// Convert map to array format for consistent ordering
+		var promptsArray []map[string]string
+		for name, content := range SystemPromptsMap.Map {
+			promptsArray = append(promptsArray, map[string]string{
+				"name":    name,
+				"content": content,
+			})
+		}
+
+		response := map[string]interface{}{
+			"system_prompts": promptsArray,
+		}
+
+		w.WriteHeader(http.StatusOK)
+		if err := json.NewEncoder(w).Encode(response); err != nil {
+			log.Printf("Error encoding system prompts response: %v", err)
+		}
 	})
 
 	// Serve static files from the web directory if it exists

@@ -21,6 +21,19 @@ func (p *SysPrompts) Get(name string) string {
 	return p.Map[name]
 }
 
+// GetFirst returns the first system prompt content (minimal by default)
+func (p *SysPrompts) GetFirst() string {
+	// Try to get "minimal" first, then fallback to first available
+	if content, exists := p.Map["minimal"]; exists {
+		return content
+	}
+	// If minimal doesn't exist, return first available
+	for _, content := range p.Map {
+		return content
+	}
+	return "You are a helpful assistant."
+}
+
 // Set adds or updates a system prompt
 func (p *SysPrompts) Set(name, content string) {
 	p.Map[name] = content
@@ -60,21 +73,11 @@ func (p *SysPrompts) Load(filepath string) error {
 }
 
 func initDefaultSystemPrompts() error {
-	// if a default_systemprompts.json file exists, bail out.
-	if _, err := os.Stat("default_systemprompts.json"); err == nil {
-		return nil
-	}
-	
-	// Otherwise, create default_systemprompts.json from embedded data
-	var prompts SysPrompts
-	err := json.Unmarshal(defaultSystemPromptsJSON, &prompts)
+
+	err := json.Unmarshal(defaultSystemPromptsJSON, &SystemPromptsMap)
 	if err != nil {
 		return fmt.Errorf("error unmarshaling embedded system prompts: %w", err)
 	}
-	
-	err = prompts.Store("default_systemprompts.json")
-	if err != nil {
-		return fmt.Errorf("error storing default system prompts: %w", err)
-	}
+
 	return nil
 }
