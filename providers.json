@@ -1,0 +1,96 @@
+{
+  "deepseek": {
+    "id": "deepseek",
+    "displayName": "DeepSeek",
+    "endpoint": "https://api.deepseek.com/chat/completions",
+    "models": [
+      {
+        "id": "deepseek-chat",
+        "displayName": "DeepSeek Chat",
+        "defaultTemperature": 0.7
+      },
+      {
+        "id": "deepseek-reasoner",
+        "displayName": "DeepSeek Reasoner",
+        "defaultTemperature": 0.5
+      }
+    ],
+    "defaultMaxTokens": 5000
+  },
+  "gemini": {
+    "id": "gemini",
+    "displayName": "Google Gemini",
+    "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    "models": [
+      {
+        "id": "gemini-2.5-pro",
+        "displayName": "Gemini 2.5 Pro",
+        "defaultTemperature": 0.7,
+        "extraFields": {
+          "safetySettings": [
+            {
+              "category": "HARM_CATEGORY_HARASSMENT",
+              "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              "category": "HARM_CATEGORY_HATE_SPEECH",
+              "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              "threshold": "BLOCK_NONE"
+            },
+            {
+              "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+              "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            }
+          ]
+        }
+      },
+      {
+        "id": "gemini-2.5-flash",
+        "displayName": "Gemini 2.5 Flash",
+        "defaultTemperature": 0.7,
+        "extraFields": {
+          "safetySettings": [
+            {
+              "category": "HARM_CATEGORY_HARASSMENT",
+              "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              "category": "HARM_CATEGORY_HATE_SPEECH",
+              "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            },
+            {
+              "category": "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+              "threshold": "BLOCK_NONE"
+            },
+            {
+              "category": "HARM_CATEGORY_DANGEROUS_CONTENT",
+              "threshold": "BLOCK_MEDIUM_AND_ABOVE"
+            }
+          ]
+        }
+      }
+    ],
+    "defaultMaxTokens": 5000
+  },
+  "together": {
+    "id": "together",
+    "displayName": "Together.ai",
+    "endpoint": "https://api.together.xyz/v1/chat/completions",
+    "models": [
+      {
+        "id": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
+        "displayName": "Meta Llama 3.1 405B",
+        "defaultTemperature": 0.7
+      },
+      {
+        "id": "Qwen/Qwen2.5-72B-Instruct-Turbo",
+        "displayName": "Qwen 2.5 72B",
+        "defaultTemperature": 0.6
+      }
+    ],
+    "defaultMaxTokens": 5000
+  }
+}

@@ -2,7 +2,7 @@
 pushio.py
 
 # ignore generated providers file
-providers.json
+goapp/providers.json
 
 # ignore apikeys
 apikeys.json
