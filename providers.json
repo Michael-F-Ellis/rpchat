@@ -3,6 +3,7 @@
     "id": "deepseek",
     "displayName": "DeepSeek",
     "endpoint": "https://api.deepseek.com/chat/completions",
+    "apiFormat": "openai",
     "models": [
       {
         "id": "deepseek-chat",
@@ -20,7 +21,8 @@
   "gemini": {
     "id": "gemini",
     "displayName": "Google Gemini",
-    "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+    "endpoint": "https://generativelanguage.googleapis.com/v1beta/models/{{model}}:generateContent",
+    "apiFormat": "gemini-native",
     "models": [
       {
         "id": "gemini-2.5-pro",
@@ -79,6 +81,7 @@
     "id": "together",
     "displayName": "Together.ai",
     "endpoint": "https://api.together.xyz/v1/chat/completions",
+    "apiFormat": "openai",
     "models": [
       {
         "id": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",

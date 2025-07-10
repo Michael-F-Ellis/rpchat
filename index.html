@@ -1162,12 +1162,13 @@
 		window.RPChat.config = (function () {
 			// Provider configuration 
 			class AIProvider {
-				constructor(id, displayName, endpoint, models, defaultMaxTokens = 1000) {
+				constructor(id, displayName, endpoint, models, defaultMaxTokens = 1000, apiFormat = 'openai') {
 					this.id = id;
 					this.displayName = displayName;
 					this.endpoint = endpoint;
 					this.models = models; // Array of model objects
 					this.defaultMaxTokens = defaultMaxTokens;
+					this.apiFormat = apiFormat;
 				}
 
 				// Helper method to get a specific model by ID
@@ -1178,12 +1179,78 @@
 				// Helper method to prepare request body
 				prepareRequestBody(modelId, messages, maxTokens = null, temperature = null) {
 					const model = this.getModel(modelId);
-					return {
+					
+					if (this.apiFormat === 'gemini-native') {
+						return this.prepareGeminiRequestBody(modelId, messages, maxTokens, temperature, model);
+					} else {
+						// Default to OpenAI format
+						return this.prepareOpenAIRequestBody(modelId, messages, maxTokens, temperature, model);
+					}
+				}
+
+				// OpenAI-compatible request body
+				prepareOpenAIRequestBody(modelId, messages, maxTokens, temperature, model) {
+					const requestBody = {
 						model: modelId,
 						messages: messages,
 						max_tokens: maxTokens || this.defaultMaxTokens,
 						temperature: temperature !== null ? parseFloat(temperature) : (model ? model.defaultTemperature : 0.7)
 					};
+					
+					// Include extraFields if they exist
+					if (model && model.extraFields) {
+						console.log('Model extraFields:', model.extraFields);
+						Object.assign(requestBody, model.extraFields);
+						console.log('Request body after extraFields merge:', requestBody);
+					}
+					
+					return requestBody;
+				}
+
+				// Gemini native request body
+				prepareGeminiRequestBody(modelId, messages, maxTokens, temperature, model) {
+					// Separate system instruction from conversation messages
+					let systemInstruction = null;
+					const contents = [];
+
+					for (const msg of messages) {
+						if (msg.role === 'system') {
+							// Extract system instruction (only use the first one)
+							if (!systemInstruction) {
+								systemInstruction = {
+									parts: [{ text: msg.content }]
+								};
+							}
+						} else if (msg.role === 'user' || msg.role === 'assistant') {
+							// Convert to Gemini format
+							contents.push({
+								role: msg.role === 'assistant' ? 'model' : 'user',
+								parts: [{ text: msg.content }]
+							});
+						}
+					}
+
+					const requestBody = {
+						contents: contents,
+						generationConfig: {
+							temperature: temperature !== null ? parseFloat(temperature) : (model ? model.defaultTemperature : 0.7),
+							maxOutputTokens: maxTokens || this.defaultMaxTokens
+						}
+					};
+
+					// Add system instruction if present
+					if (systemInstruction) {
+						requestBody.system_instruction = systemInstruction;
+					}
+
+					// Include extraFields (like safetySettings) if they exist
+					if (model && model.extraFields) {
+						console.log('Model extraFields:', model.extraFields);
+						Object.assign(requestBody, model.extraFields);
+						console.log('Request body after extraFields merge:', requestBody);
+					}
+
+					return requestBody;
 				}
 
 				// Form the name of the API key from the provider's ID
@@ -1195,10 +1262,11 @@
 
 			// Model configuration class
 			class AIModel {
-				constructor(id, displayName, defaultTemperature = 0.7) {
+				constructor(id, displayName, defaultTemperature = 0.7, extraFields=null) {
 					this.id = id;
 					this.displayName = displayName;
 					this.defaultTemperature = defaultTemperature;
+					this.extraFields = extraFields;
 				}
 			}
 
@@ -1212,17 +1280,19 @@
 						new AIModel('deepseek-chat', 'DeepSeek Chat', 0.7),
 						new AIModel('deepseek-reasoner', 'DeepSeek Reasoner', 0.5),
 					],
-					5000
+					5000,
+					'openai'
 				)],
 				['gemini', new AIProvider(
 					'gemini',
 					'Google Gemini',
-					'https://generativelanguage.googleapis.com/v1beta/openai/chat/completions',
+					'https://generativelanguage.googleapis.com/v1beta/models/{{model}}:generateContent',
 					[
 						new AIModel('gemini-2.5-pro', 'Gemini 2.5 Pro', 0.7, {"safetySettings": [{"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}, {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}, {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"}, {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}]}),
 						new AIModel('gemini-2.5-flash', 'Gemini 2.5 Flash', 0.7, {"safetySettings": [{"category": "HARM_CATEGORY_HARASSMENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}, {"category": "HARM_CATEGORY_HATE_SPEECH", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}, {"category": "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold": "BLOCK_NONE"}, {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"}]}),
 					],
-					5000
+					5000,
+					'gemini-native'
 				)],
 				['together', new AIProvider(
 					'together',
@@ -1232,7 +1302,8 @@
 						new AIModel('meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo', 'Meta Llama 3.1 405B', 0.7),
 						new AIModel('Qwen/Qwen2.5-72B-Instruct-Turbo', 'Qwen 2.5 72B', 0.6),
 					],
-					5000
+					5000,
+					'openai'
 				)],
 			]);
 
@@ -1428,11 +1499,49 @@ The user prompts should be regarded as directives for the next increments of the
 			},
 
 			/**
+			 * Sends a request to Gemini native API (no authorization header)
+			 * @param {string} endpoint - The API endpoint
+			 * @param {object} requestBody - The request body
+			 * @param {function} onSuccess - Callback for successful response
+			 * @param {function} onError - Callback for errors
+			 */
+			sendGeminiRequest: function (endpoint, requestBody, onSuccess, onError) {
+				fetch(endpoint, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json'
+					},
+					body: JSON.stringify(requestBody)
+				})
+					.then(response => {
+						if (!response.ok) {
+							return response.json().then(errorData => {
+								throw new Error(errorData.error || `HTTP error! Status: ${response.status}`)
+							}).catch(() => {
+								throw new Error(`HTTP error! Status: ${response.status}`)
+							})
+						}
+						return response.json()
+					})
+					.then(data => {
+						onSuccess(data)
+					})
+					.catch(error => {
+						onError(error)
+					})
+			},
+
+			/**
 			 * Extracts the content from an AI provider response
 			 * @param {object} response - The response from the AI provider
 			 * @returns {string} The extracted content
 			 */
 			extractResponseContent: function (response) {
+				// For Gemini native API format:
+				if (response.candidates && response.candidates[0] && response.candidates[0].content) {
+					return response.candidates[0].content.parts[0].text
+				}
+				
 				// For OpenAI/Together.ai standard format:
 				if (response.choices && response.choices[0] && response.choices[0].message) {
 					return response.choices[0].message.content
@@ -2083,22 +2192,56 @@ The user prompts should be regarded as directives for the next increments of the
 				temperature
 			);
 
-			// Make API call using the API module
-			window.RPChat.api.sendRequest(
-				provider.endpoint,
-				apiKey,
-				requestBody,
-				handleApiResponse,
-				handleApiError
-			);
+			// Prepare endpoint and make API call
+			let endpoint = provider.endpoint;
+			if (provider.apiFormat === 'gemini-native') {
+				// Replace {{model}} placeholder with actual model ID
+				endpoint = endpoint.replace('{{model}}', selectedModelId);
+				// Add API key as URL parameter
+				endpoint += `?key=${apiKey}`;
+				
+				// Make API call without authorization header for Gemini
+				window.RPChat.api.sendGeminiRequest(
+					endpoint,
+					requestBody,
+					(response) => handleApiResponse(response, requestBody),
+					handleApiError
+				);
+			} else {
+				// Use standard OpenAI-compatible API
+				window.RPChat.api.sendRequest(
+					endpoint,
+					apiKey,
+					requestBody,
+					(response) => handleApiResponse(response, requestBody),
+					handleApiError
+				);
+			}
 		}
 
 		// Handle successful API response
-		function handleApiResponse(response) {
+		function handleApiResponse(response, requestBody) {
 			isProcessing = false;
 			El.sendButton.disabled = false;
 
 			try {
+				// Check finish_reason and log if not 'stop'
+				let finishReason = null;
+				
+				// For Gemini native API format:
+				if (response.candidates && response.candidates[0] && response.candidates[0].finishReason) {
+					finishReason = response.candidates[0].finishReason;
+				}
+				// For OpenAI/Together.ai standard format:
+				else if (response.choices && response.choices[0] && response.choices[0].finish_reason) {
+					finishReason = response.choices[0].finish_reason;
+				}
+				
+				if (finishReason && finishReason !== 'STOP' && finishReason !== 'stop') {
+					console.log('Non-stop finish_reason detected:', finishReason);
+					console.log('Request body:', requestBody);
+				}
+
 				// Extract AI response content
 				const responseContent = window.RPChat.api.extractResponseContent(response);
 

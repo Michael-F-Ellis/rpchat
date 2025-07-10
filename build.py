@@ -43,7 +43,8 @@ def generate_providers_js(providers_data):
             provider_js += f"""						new AIModel('{model['id']}', '{model['displayName']}', {model['defaultTemperature']}{extra_fields_str}),\n"""
         
         provider_js += f"""					],
-					{provider_config.get('defaultMaxTokens', 5000)}
+					{provider_config.get('defaultMaxTokens', 5000)},
+					'{provider_config.get('apiFormat', 'openai')}'
 				)],
 """
         providers_js += provider_js
