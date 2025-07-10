@@ -2057,10 +2057,7 @@
 		}
 
 		// Initialize the application
-		function initializeApp(config) {
-			window.RPChat = window.RPChat || {};
-			window.RPChat.config = config;
-
+		function initializeApp() {
 			// Wait for DOM to be fully loaded
 			if (document.readyState === 'loading') {
 				document.addEventListener('DOMContentLoaded', init);
@@ -2070,7 +2067,7 @@
 		}
 
 		// Call initialization
-		initializeApp(window.RPChat.config);
+		initializeApp();
 
 		// Utility function to scroll chat container to bottom
 		function scrollToBottom() {

@@ -2186,10 +2186,7 @@ The user prompts should be regarded as directives for the next increments of the
 		}
 
 		// Initialize the application
-		function initializeApp(config) {
-			window.RPChat = window.RPChat || {};
-			window.RPChat.config = config;
-
+		function initializeApp() {
 			// Wait for DOM to be fully loaded
 			if (document.readyState === 'loading') {
 				document.addEventListener('DOMContentLoaded', init);
@@ -2199,7 +2196,7 @@ The user prompts should be regarded as directives for the next increments of the
 		}
 
 		// Call initialization
-		initializeApp(window.RPChat.config);
+		initializeApp();
 
 		// Utility function to scroll chat container to bottom
 		function scrollToBottom() {

@@ -1,12 +1,17 @@
 # RPChat - Editable AI Chat Client
 
 RPChat is a flexible chat interface for roleplaying with AI language models. It allows you to edit both your messages and AI responses, providing full control over the conversation context.
+
+## Try It Now
+You can use RPChat directly at: https://michael-f-ellis.github.io/rpchat
+
 ## Getting Started
 - Clone this repository or download the files
 - Open index.html in your browser
 - Select your preferred AI provider from the dropdown
 - Enter your API key for the selected provider and click "Save Key"
 - Select a model and adjust the temperature as needed
+- Choose a system prompt style from the dropdown (or use the default)
 - Use your first prompt to define roles for yourself and the AI
 - - It can be as simple 'You are Jack and I am Jill' 
 - - or complex as you like with fully fleshed out characters and scenario.
@@ -14,32 +19,31 @@ RPChat is a flexible chat interface for roleplaying with AI language models. It 
 - Start chatting!
 
 ## Features
-### Multiple AI Provider Support Built in:
+### Multiple AI Provider and Model Support Built in:
 - DeepSeek
-- Together.ai
 - Google Gemini
+  
 ### Extensible
-All the CSS, HTML and JavaScript is bundled into a single file you can edit and customize.
+All the CSS, HTML and JavaScript is bundled into a single file you can edit and customize. See [RPChat Build System](BUILD.md) for development instructions.
 
-- Add support for new AI providers by editing the PROVIDERS object in the script.
+- Add support for new AI providers by editing the `providers.json` file in the repo and rebuilding.
 - - New providers must have endpoints that implement a basic  OpenAI compatible chat API.
-- Edit any message (system, user, or assistant)	
-- Delete single messages or delete from a specific point
-- Collapsible system prompts
 ### Rich Message Controls:
 - Edit any message (system, user, or assistant)
 - Delete single messages or delete from a specific point
+- Collapsible system prompts
 ### Model Control:
 - Temperature adjustment for controlling response randomness
 - Model selection for each provider
+- System prompt selector with preset styles (first person, third person, minimal)
 - Editable system prompts
 - Make changes at any point in the conversation
 ### Data Management:
 - Import/Export chat sessions as JSON files.
 - Session persistence across page refreshes
-- Convenient API key storage in browser
+- Convenient API key storage in browser `localStorage`
 ### Privacy-Focused:
-- All data stored locally in your browser
+- All data stored locally in your browser and file system
 - API keys never sent to any server except the respective AI provider
 ## Usage
 ### Requirements
@@ -60,12 +64,18 @@ All the CSS, HTML and JavaScript is bundled into a single file you can edit and 
 ### Configuration
 - Change the AI provider using the dropdown at the top
 - Select different models based on your chosen provider
+- Choose a system prompt style from the dropdown (first person, third person, or minimal)
 - Adjust the "Temperature" slider to control response randomness (higher values = more creative/random)
 ### System Prompts
-RPChat comes with a default system prompt optimized for roleplaying scenarios. You can edit this prompt by clicking the edit button on the system message at the beginning of the conversation.
+RPChat comes with preset system prompt styles optimized for different roleplaying scenarios:
+- **First Person**: For immersive roleplaying where you interact directly with AI characters. This is the default for new chats.
+- **Third Person**: For collaborative storytelling from an observer perspective
+- **Minimal**: A simple assistant prompt for general conversation, e.g. interactively developing characters or summarizing a plot line.
+
+You can select a style from the dropdown or edit the system prompt by clicking the edit button on the system message at the beginning of the conversation. Note that your customized versions will be saved when you export a chat and restored when you import it.
 
 ## Privacy
 Your API keys and chat history are stored only in your browser's local storage and are never sent to any server other than the AI provider APIs for processing your messages. Please note that while your data is kept private, the AI providers may still have access to your messages for training their models. Also note that saving API keys in your browser's local storage is secure as long as no third-party libraries are introduced into the application. 
 
 ## License
-MIT
+[MIT License](LICENSE)
