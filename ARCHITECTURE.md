@@ -4,6 +4,10 @@
 
 RPChat is a single-page application (SPA) that provides a flexible chat interface for roleplaying with AI language models. The application is built using vanilla JavaScript with a component-based architecture that allows for message editing, provider switching, and full conversation management.
 
+## Design Goals
+- **Serverless** *Run in any modern browser. No backend required.*
+- **No Dependencies** *HTML+CSS+JS.  No third-party libraries*
+
 ## Application Structure
 
 ### Core Architecture
@@ -251,5 +255,3 @@ RPChat is a single-page application (SPA) that provides a flexible chat interfac
 - Disabled controls during processing
 - Status messages for user feedback
 - Confirmation dialogs for destructive actions
-
-This architecture provides a solid foundation for AI chat applications while maintaining flexibility for extensions and modifications.

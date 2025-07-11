@@ -1428,15 +1428,41 @@ The user prompts should be regarded as directives for the next increments of the
 				selector.appendChild(option);
 			});
 
-			// Set the first option as selected
-			if (systemPrompts.length > 0) {
+			// Check if there's an imported system prompt in sessionStorage
+			const importedPrompt = sessionStorage.getItem('importedSystemPrompt');
+			if (importedPrompt) {
+				const importedOption = document.createElement('option');
+				importedOption.value = 'imported';
+				importedOption.textContent = 'Imported';
+				selector.appendChild(importedOption);
+			}
+
+			// Restore the previously selected system prompt option or default to first
+			const savedSelection = sessionStorage.getItem('selectedSystemPrompt');
+			if (savedSelection === 'imported' && importedPrompt) {
+				selector.value = 'imported';
+			} else if (savedSelection && systemPrompts[parseInt(savedSelection)]) {
+				selector.value = savedSelection;
+			} else if (systemPrompts.length > 0) {
 				selector.selectedIndex = 0;
 			}
 		}
 
 		// Function to get the current system prompt content
 		function getCurrentSystemPrompt() {
-			const selectedIndex = El.systemPromptSelector?.selectedIndex || 0;
+			const selector = El.systemPromptSelector;
+			if (!selector) return 'You are a helpful assistant.';
+			
+			const selectedValue = selector.value;
+			
+			// Check if "Imported" is selected
+			if (selectedValue === 'imported') {
+				const importedPrompt = sessionStorage.getItem('importedSystemPrompt');
+				return importedPrompt || 'You are a helpful assistant.';
+			}
+			
+			// Otherwise use the standard system prompts
+			const selectedIndex = parseInt(selectedValue) || 0;
 			return systemPrompts[selectedIndex]?.content || 'You are a helpful assistant.';
 		}
 
@@ -1445,6 +1471,9 @@ The user prompts should be regarded as directives for the next increments of the
 			if (!chatManager) return;
 
 			const newSystemPrompt = getCurrentSystemPrompt();
+
+			// Save the selected system prompt option to sessionStorage
+			sessionStorage.setItem('selectedSystemPrompt', El.systemPromptSelector.value);
 
 			// Update the system message in the chat manager
 			const messages = chatManager.messages;
@@ -1622,6 +1651,11 @@ The user prompts should be regarded as directives for the next increments of the
 								// First add the system message (should be the first one in the array)
 								const systemMessage = importedData.messages.find(msg => msg.role === 'system');
 
+								// Save the imported system prompt to sessionStorage
+								if (systemMessage) {
+									sessionStorage.setItem('importedSystemPrompt', systemMessage.content);
+								}
+
 								// Create a batch of messages to add
 								const messagesToAdd = [];
 
@@ -1642,6 +1676,14 @@ The user prompts should be regarded as directives for the next increments of the
 
 								// Persist changes
 								sessionStorage.setItem('chatMessages', JSON.stringify(chatManager.getMessagesJSON()));
+
+								// Update the system prompt selector to include the "Imported" option
+								updateSystemPromptSelector();
+								
+								// Set the selector to "Imported" if we have an imported system prompt
+								if (systemMessage) {
+									El.systemPromptSelector.value = 'imported';
+								}
 
 								// Render the chat
 								chatManager.render();
