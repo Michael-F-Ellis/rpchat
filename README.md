@@ -24,7 +24,7 @@ You can use RPChat directly at: https://michael-f-ellis.github.io/rpchat
 - Google Gemini
   
 ### Extensible
-All the CSS, HTML and JavaScript is bundled into a single file you can edit and customize. See [RPChat Build System](BUILD.md) for development instructions.
+All the CSS, HTML and JavaScript is bundled into a single file you can edit and customize. See [RPChat Build System](BUILD.md) for development instructions and [RPChat Architecture](ARCHITECTURE.md) for a detailed overview of the code.
 
 - Add support for new AI providers by editing the `providers.json` file in the repo and rebuilding.
 - - New providers must have endpoints that implement a basic  OpenAI compatible chat API.
