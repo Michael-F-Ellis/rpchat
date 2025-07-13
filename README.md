@@ -3,7 +3,7 @@
 RPChat is a flexible chat interface for roleplaying with AI language models. It allows you to edit both your messages and AI responses, providing full control over the conversation context.
 
 ## Try It Now
-You can use RPChat directly at: https://michael-f-ellis.github.io/rpchat
+You can use RPChat directly at: https://michael-f-ellis.github.io/rpchat. Note that you'll need to have or obtain an API key for at least one of the following providers, `DeepSeek`, `Google Gemini` or `Together AI`. 
 
 ## Getting Started
 - Clone this repository or download the files
