@@ -84,6 +84,16 @@
     "apiFormat": "openai",
     "models": [
       {
+        "id": "openai/gpt-oss-120b",
+        "displayName": "OpenAI GPT-OSS-120B",
+        "defaultTemperature": 0.7
+      },
+      {
+        "id": "openai/gpt-oss-20b",
+        "displayName": "OpenAI GPT-OSS-20B",
+        "defaultTemperature": 0.7
+      },
+      {
         "id": "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
         "displayName": "Meta Llama 3.1 405B",
         "defaultTemperature": 0.7
@@ -92,6 +102,25 @@
         "id": "Qwen/Qwen2.5-72B-Instruct-Turbo",
         "displayName": "Qwen 2.5 72B",
         "defaultTemperature": 0.6
+      }
+    ],
+    "defaultMaxTokens": 5000
+  },
+  "Z": {
+    "id": "Z",
+    "displayName": "Z",
+    "endpoint": "https://api.z.ai/api/paas/v4/chat/completions",
+    "apiFormat": "openai",
+    "models": [
+      {
+        "id": "glm-4.5",
+        "displayName": "glm-4.5",
+        "defaultTemperature": 0.7
+      },
+      {
+        "id": "glm-4.5-air",
+        "displayName": "glm-4.5-air",
+        "defaultTemperature": 0.7
       }
     ],
     "defaultMaxTokens": 5000
