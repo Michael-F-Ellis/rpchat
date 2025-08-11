@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """
 Build script for RPChat index.html
-Processes index.html.template and injects providers and system prompts from JSON files
+Processes index.template.html and injects providers and system prompts from JSON files
 """
 
 import json
 import os
 import sys
+
+Template_path = 'index.template.html'
 
 def load_json_file(filepath):
     """Load and parse a JSON file"""
@@ -84,13 +86,13 @@ def generate_system_prompts_js(system_prompts_data):
 def build_index_html():
     """Build index.html from template and JSON files"""
     # Check if template exists
-    if not os.path.exists('index.html.template'):
+    if not os.path.exists(Template_path):
         print("Error: index.html.template not found")
         sys.exit(1)
     
     # Load template
-    try:
-        with open('index.html.template', 'r', encoding='utf-8') as f:
+    try: # Replace 'index.html.template' with Template_path
+        with open(Template_path, 'r', encoding='utf-8') as f:
             template_content = f.read()
     except IOError as e:
         print(f"Error reading template: {e}")

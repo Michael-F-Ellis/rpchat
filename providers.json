@@ -18,6 +18,20 @@
     ],
     "defaultMaxTokens": 5000
   },
+  "fireworks": {
+    "id": "fireworks",
+    "displayName": "Fireworks",
+    "endpoint": "https://api.fireworks.ai/inference/v1/chat/completions",
+    "apiFormat": "openai",
+    "models": [
+      {
+        "id": "accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
+        "displayName": "Qwen 3 235B",
+        "defaultTemperature": 0.7
+      }
+    ],
+    "defaultMaxTokens": 4999
+  },
   "gemini": {
     "id": "gemini",
     "displayName": "Google Gemini",
