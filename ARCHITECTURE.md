@@ -40,8 +40,6 @@ RPChat is a single-page application (SPA) that provides a flexible chat interfac
 - `role`: Message role (system, user, assistant, app)
 - `content`: Message text content
 - `id`: Unique identifier
-- `characterId`: Character association (for multi-character support)
-- `visibility`: Message visibility (public/private)
 - `element`: DOM element reference
 
 **Key Methods**:
@@ -75,13 +73,12 @@ RPChat is a single-page application (SPA) that provides a flexible chat interfac
 - `getMessagesJSON()`: Exports messages as JSON
 - `parseMessagesJSON(data)`: Imports messages from JSON
 - `render()`: Renders all messages to DOM
-- `prepareApiMessagesForCharacter(characterId)`: Formats messages for API calls
 
 **Business Rules**:
 - Exactly one system message (always first)
 - Trailing empty user message for continuation
 - System message cannot be deleted
-- Validates message structure on import
+- Validate message structure on import
 
 ### 3. AIProvider Class
 
@@ -208,6 +205,12 @@ RPChat is a single-page application (SPA) that provides a flexible chat interfac
 3. System message rule enforcement
 4. ChatMessage instance creation
 5. UI rendering and state persistence
+
+### Extracting Chat to Markdown
+1. User selects which roles to include and whether to label them.
+2. App formats the doc
+3. App presents a system File Save dialog
+4. User selects the destination and file name  (or cancels).
 
 ## Key Design Patterns
 
