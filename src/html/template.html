@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>RPChat - Editable AI Chat</title>
+	<style>
+		/* {{CSS_PLACEHOLDER}} */
+	</style>
+</head>
+
+<body>
+	<div class="container">
+		<header>
+			<div class="header-title">
+				<h1>RPChat</h1>
+				<div class="header-info">
+					<p>
+						v1.0.9&nbsp
+						<a href="https://github.com/michael-f-ellis/rpchat" class="header-link" target="_blank">Source
+							code</a>
+					</p>
+				</div>
+				<button id="header-toggle" class="header-toggle" aria-label="Toggle header">⚙️</button>
+			</div>
+			<div id="header-content" class="header-content">
+				<div class="api-key-container">
+					<label for="api-key">API Key:</label>
+					<div class="input-group">
+						<input type="password" id="api-key" placeholder="Enter API Key">
+						<button id="save-key">Save Key</button>
+					</div>
+				</div>
+				<div class="provider-selector">
+					<label for="api-provider">API Provider:</label>
+					<select id="api-provider">
+						<!-- Options injected at runtime -->
+					</select>
+				</div>
+				<div class="model-selector">
+					<label for="model-selector">Model:</label>
+					<select id="model-selector">
+						<!-- Options injected at runtime -->
+					</select>
+				</div>
+				<div class="temperature-container">
+					<label for="temperature-input">Temperature:</label>
+					<input type="number" id="temperature-input" min="0" step="0.01" value="0.7">
+				</div>
+				<div class="system-prompt-selector">
+					<label for="system-prompt-selector">System Prompt:</label>
+					<select id="system-prompt-selector">
+						<!-- Options injected at runtime -->
+					</select>
+				</div>
+			</div>
+		</header>
+
+		<div id="chat-container" class="chat-container">
+		</div>
+		<div id="status-message" class="status-bar">
+
+		</div>
+		<footer>
+			<div class="action-buttons">
+				<button id="clear-chat">Clear</button>
+				<button id="export-chat">Export</button>
+				<button id="import-chat">Import</button>
+				<button id="extract-chat-md">Extract</button>
+			</div>
+
+			<div class="send-container">
+				<label id="send-label" for="send-button"></label>
+				<button id="send-button">Send</button>
+			</div>
+		</footer>
+	</div>
+
+	<div id="extract-md-modal" class="modal-overlay">
+		<div class="modal-content">
+			<h2>Extract Chat to Markdown</h2>
+			<div class="modal-options">
+				<div class="option">
+					<input type="checkbox" id="md-include-assistant" checked>
+					<label for="md-include-assistant">Include Assistant messages</label>
+				</div>
+				<div class="option">
+					<input type="checkbox" id="md-include-user" checked>
+					<label for="md-include-user">Include User messages</label>
+				</div>
+				<div class="option">
+					<input type="checkbox" id="md-include-system">
+					<label for="md-include-system">Include System prompt</label>
+				</div>
+				<div class="option">
+					<input type="checkbox" id="md-include-labels">
+					<label for="md-include-labels">Add role labels (e.g., "User:")</label>
+				</div>
+			</div>
+			<div class="modal-buttons">
+				<button id="extract-md-cancel" class="cancel-btn">Cancel</button>
+				<button id="extract-md-confirm">Extract</button>
+			</div>
+		</div>
+	</div>
+
+	<script>
+		// {{JS_PLACEHOLDER}}
+	</script>
+</body>
+
+</html>
