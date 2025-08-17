@@ -594,7 +594,7 @@
 		};
 
 		/* Chat Message Class and Constants
-		 *
+		 * 
 		 * This class represents a chat message with various properties and methods.
 		 * It also defines a set of CSS classes used for styling and identifying message roles.
 		 */
@@ -717,7 +717,7 @@
 				}
 
 				return messageEl;
-			}	// Generate message control buttons
+			} // Generate message control buttons
 			createMessageControlButtons(messageId, controlsEl) {
 				// Add edit button (Applies to system, user, and assistant)
 				if (this.role !== ROLES.APP) {
@@ -737,7 +737,7 @@
 					deleteFromHereBtn.addEventListener('click', () => this.deleteFromHereCB(messageId));
 					controlsEl.appendChild(deleteFromHereBtn);
 				}
-			}	// Start editing a message
+			} // Start editing a message
 			startEditing() {
 				// get the content element. It's a child of this.element
 				const contentEl = this.element.querySelector('.editable-content');
@@ -813,7 +813,7 @@
 			// Add a method to check if message is being edited
 			isBeingEdited() {
 				return this.isEditing;
-			}	// Reset message controls after editing
+			} // Reset message controls after editing
 			resetMessageControls() {
 				// Clear existing controls
 				const controlsEl = this.element.querySelector('.message-controls');
@@ -901,14 +901,13 @@
 				// --- End Trailing User Message ---
 
 				// Note: No initial rendering from constructor to allow setup completion.
-				// Call render() explicitly after instantiation if needed immediately.				
+				// Call render() explicitly after instantiation if needed immediately.			}
+
+				/**
+				 * Calls the registered onUpdate callback, if provided.
+				 * @private
+				 */
 			}
-
-			/**
-			 * Calls the registered onUpdate callback, if provided.
-			 * @private
-			 */
-
 
 			_notifyUpdate() {
 				if (typeof this.onUpdate === 'function') {
@@ -1245,7 +1244,7 @@
 					} else {
 						// Check first message is system if messages exist
 						if (parsedMessages[0]?.role !== ROLES.SYSTEM) {
-							throw new Error(`Invalid chat history: First message must have role "${ROLES.SYSTEM}`);
+							throw new Error(`Invalid chat history: First message must have role "${ROLES.SYSTEM}"`);
 						}
 						// Check for other system messages
 						const otherSystemMessages = parsedMessages.slice(1).filter(m => m.role === ROLES.SYSTEM);
@@ -1508,6 +1507,10 @@
 					this.displayName = displayName;
 					this.defaultTemperature = defaultTemperature;
 					this.extraFields = extraFields;
+					// The following are used at run time to track cumulative tokens
+					this.tokensSent = 0;
+					this.tokensReceived = 0;
+					this.tokensThinking = 0;
 				}
 			}
 
@@ -1742,9 +1745,10 @@ The user prompts should be regarded as directives for the next increments of the
 			// Update the system message in the chat manager
 			const messages = chatManager.messages;
 			if (messages.length > 0 && messages[0].role === 'system') {
-				messages[0].content = newSystemPrompt;
+				messages[0].content = newSystemPrompt; // Update internal content
+
 				// Update the DOM element
-				const contentEl = messages[0].element?.querySelector('.editable-content');
+				const contentEl = messages[0].element?.querySelector(`.${CSS_CLASSES.EDITABLE_CONTENT}`);
 				if (contentEl) {
 					contentEl.textContent = newSystemPrompt;
 				}
@@ -2112,8 +2116,204 @@ The user prompts should be regarded as directives for the next increments of the
 			return markdown;
 		}
 
+		// Provider and model management functions
+		window.createProvider = function (providerData) {
+			return new Promise((resolve, reject) => {
+				if (!db) return reject('DB not initialized');
+				const transaction = db.transaction(['providers'], 'readwrite');
+				const store = transaction.objectStore('providers');
+				const request = store.add(providerData);
+				request.onsuccess = () => resolve(providerData);
+				request.onerror = (event) => reject(event.target.error);
+			});
+		};
+
+		window.readProvider = function (providerId) {
+			return new Promise((resolve, reject) => {
+				if (!db) return reject('DB not initialized');
+				const transaction = db.transaction(['providers', 'models'], 'readonly');
+				const providerStore = transaction.objectStore('providers');
+				const modelStore = transaction.objectStore('models');
+
+				const providerRequest = providerStore.get(providerId);
+
+				providerRequest.onsuccess = () => {
+					const provider = providerRequest.result;
+					if (!provider) {
+						resolve(null);
+						return;
+					}
+
+					const modelIndex = modelStore.index('providerId');
+					const modelsRequest = modelIndex.getAll(providerId);
+
+					modelsRequest.onsuccess = () => {
+						provider.models = modelsRequest.result;
+						resolve(provider);
+					};
+				};
+
+				transaction.onerror = (event) => reject(event.target.error);
+			});
+		};
+
+		window.updateProvider = function (providerId, providerData) {
+			if (providerData.id !== providerId) {
+				return Promise.reject('Provider ID mismatch');
+			}
+			return new Promise((resolve, reject) => {
+				if (!db) return reject('DB not initialized');
+				const transaction = db.transaction(['providers'], 'readwrite');
+				const store = transaction.objectStore('providers');
+				const dataToStore = { ...providerData };
+				delete dataToStore.models; // Models are managed in their own store
+				const request = store.put(dataToStore);
+				request.onsuccess = () => resolve(providerData);
+				request.onerror = (event) => reject(event.target.error);
+			});
+		};
+
+		window.deleteProvider = function (providerId) {
+			return new Promise((resolve, reject) => {
+				if (!db) return reject('DB not initialized');
+				const transaction = db.transaction(['providers', 'models'], 'readwrite');
+				const providerStore = transaction.objectStore('providers');
+				const modelStore = transaction.objectStore('models');
+
+				providerStore.delete(providerId);
+
+				const modelIndex = modelStore.index('providerId');
+				const modelsRequest = modelIndex.openCursor(providerId);
+
+				modelsRequest.onsuccess = () => {
+					const cursor = modelsRequest.result;
+					if (cursor) {
+						modelStore.delete(cursor.primaryKey);
+						cursor.continue();
+					}
+				};
+
+				transaction.oncomplete = () => resolve(providerId);
+				transaction.onerror = (event) => reject(event.target.error);
+			});
+		};
+
+		window.createModel = function (providerId, modelData) {
+			return new Promise((resolve, reject) => {
+				if (!db) return reject('DB not initialized');
+				const transaction = db.transaction(['models'], 'readwrite');
+				const store = transaction.objectStore('models');
+				const dataToAdd = { ...modelData, providerId: providerId };
+				const request = store.add(dataToAdd);
+				request.onsuccess = () => resolve(dataToAdd);
+				request.onerror = (event) => reject(event.target.error);
+			});
+		};
+
+		window.readModel = function (providerId, modelId) {
+			return new Promise((resolve, reject) => {
+				if (!db) return reject('DB not initialized');
+				const transaction = db.transaction(['models'], 'readonly');
+				const store = transaction.objectStore('models');
+				const request = store.get(modelId);
+				request.onsuccess = () => {
+					const model = request.result;
+					if (model && model.providerId === providerId) {
+						resolve(model);
+					} else {
+						resolve(null);
+					}
+				};
+				request.onerror = (event) => reject(event.target.error);
+			});
+		};
+
+		window.updateModel = function (providerId, modelId, modelData) {
+			if (modelData.id !== modelId) {
+				return Promise.reject('Model ID mismatch');
+			}
+			return new Promise((resolve, reject) => {
+				if (!db) return reject('DB not initialized');
+				const transaction = db.transaction(['models'], 'readwrite');
+				const store = transaction.objectStore('models');
+				const dataToUpdate = { ...modelData, providerId: providerId };
+				const request = store.put(dataToUpdate);
+				request.onsuccess = () => resolve(dataToUpdate);
+				request.onerror = (event) => reject(event.target.error);
+			});
+		};
+
+		window.deleteModel = function (providerId, modelId) {
+			return new Promise((resolve, reject) => {
+				if (!db) return reject('DB not initialized');
+				const transaction = db.transaction(['models'], 'readwrite');
+				const store = transaction.objectStore('models');
+
+				const getRequest = store.get(modelId);
+				getRequest.onsuccess = () => {
+					const model = getRequest.result;
+					if (model && model.providerId === providerId) {
+						const deleteRequest = store.delete(modelId);
+						deleteRequest.onsuccess = () => resolve(modelId);
+						deleteRequest.onerror = (event) => reject(event.target.error);
+					} else if (model) {
+						reject(`Model ${modelId} does not belong to provider ${providerId}`);
+					} else {
+						resolve(null); // Not found, but not an error for delete
+					}
+				};
+				getRequest.onerror = (event) => reject(event.target.error);
+			});
+		};
+
+		// Database management
+		const DB_NAME = 'rpchatDB';
+		const DB_VERSION = 1; // Using a simple integer for IndexedDB version
+		let db;
+
+		function initDB() {
+			return new Promise((resolve, reject) => {
+				const request = indexedDB.open(DB_NAME, DB_VERSION);
+
+				request.onupgradeneeded = (event) => {
+					const db = event.target.result;
+					console.log('Upgrading database...');
+
+					// Create providers object store
+					if (!db.objectStoreNames.contains('providers')) {
+						const providersStore = db.createObjectStore('providers', { keyPath: 'id' });
+						console.log('Created providers object store');
+					}
+
+					// Create models object store
+					if (!db.objectStoreNames.contains('models')) {
+						const modelsStore = db.createObjectStore('models', { keyPath: 'id' });
+						modelsStore.createIndex('providerId', 'providerId', { unique: false });
+						console.log('Created models object store and providerId index');
+					}
+				};
+
+				request.onsuccess = (event) => {
+					db = event.target.result;
+					console.log('Database initialized successfully');
+					resolve(db);
+				};
+
+				request.onerror = (event) => {
+					console.error('Database error:', event.target.error);
+					reject(event.target.error);
+				};
+			});
+		}
+
+
 		// Initialize application
-		function init() {	// Load saved state from sessionStorage
+		async function init() { // Load saved state from sessionStorage
+			try {
+				await initDB();
+			} catch (error) {
+				showStatus('Failed to initialize database. Provider management will not work.', 'error');
+			}
 			loadStateFromStorage();
 
 			// Set up UI elements based on configuration
