@@ -1533,7 +1533,8 @@ window.RPChat.config = (function () {
 					'Fireworks',
 					'https://api.fireworks.ai/inference/v1/chat/completions',
 					[
-					new AIModel('accounts/fireworks/models/qwen3-235b-a22b-instruct-2507', 'Qwen 3 235B', 0.7)
+					new AIModel('accounts/fireworks/models/qwen3-235b-a22b-instruct-2507', 'Qwen 3 235B', 0.7),
+					new AIModel('accounts/fireworks/models/deepseek-v3-0324', 'DeepSeek v3', 0.7)
 					],
 					4999,
 					'openai'
@@ -2118,6 +2119,9 @@ window.extractChatToMarkdown = function (assistant = true, user = true, system =
 // Provider and model management functions
 window.createProvider = function (providerData) {
 	return new Promise((resolve, reject) => {
+	    if (!validateProviderData(providerData)) {
+		    return Promise.reject({reason: 'Invalid provider data', data: providerData});
+	    }
 		if (!db) return reject('DB not initialized');
 		const transaction = db.transaction(['providers'], 'readwrite');
 		const store = transaction.objectStore('providers');
@@ -2195,9 +2199,30 @@ window.deleteProvider = function (providerId) {
 		transaction.onerror = (event) => reject(event.target.error);
 	});
 };
+// validateProviderData returns true if providerData is a proper config.RPChat.AIProvider object.
+function validateProviderData(providerData) {
+	if (!providerData || typeof providerData !== 'object') {
+		return false;
+	}
+	const requiredKeys = ['id', 'displayName', 'apiFormat', 'endpoint', 'models'];
+	for (const key of requiredKeys) {
+		if (!providerData.hasOwnProperty(key)) {
+			return false;
+		}
+	}
+	if (!Array.isArray(providerData.models)) {
+		return false;
+	}	
+	return true;
+}
+
+	
 
 window.createModel = function (providerId, modelData) {
 	return new Promise((resolve, reject) => {
+		if (!validateModelData(modelData)) {
+			return Promise.reject({reason: 'Invalid model data', data: modelData});
+		}
 		if (!db) return reject('DB not initialized');
 		const transaction = db.transaction(['models'], 'readwrite');
 		const store = transaction.objectStore('models');
@@ -2263,6 +2288,21 @@ window.deleteModel = function (providerId, modelId) {
 		getRequest.onerror = (event) => reject(event.target.error);
 	});
 };
+
+// validateModelData(modelData) returns true if modelData is a proper RPChat.config.AIModel object.
+function validateModelData(modelData) {
+	if (!modelData || typeof modelData !== 'object') {
+		return false;
+	}
+	const requiredKeys = ['id', 'displayName', 'defaultTemperature'];
+	for (const key of requiredKeys) {
+		if (!modelData.hasOwnProperty(key)) {
+			return false;
+		}
+	}
+	return true;
+}
+
 
 // Database management
 const DB_NAME = 'rpchatDB';

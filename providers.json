@@ -28,6 +28,11 @@
         "id": "accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
         "displayName": "Qwen 3 235B",
         "defaultTemperature": 0.7
+      },
+      {
+        "id": "accounts/fireworks/models/deepseek-v3-0324",
+        "displayName": "DeepSeek v3",
+        "defaultTemperature": 0.7
       }
     ],
     "defaultMaxTokens": 4999
