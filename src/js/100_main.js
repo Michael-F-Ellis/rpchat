@@ -72,13 +72,28 @@ window.createProvider = function (providerData) {
 window.readProvider = function (providerId) {
 	return new Promise((resolve, reject) => {
 		if (!db) return reject('DB not initialized');
-		const transaction = db.transaction(['providers'], 'readonly');
-		const store = transaction.objectStore('providers');
-		const request = store.get(providerId);
-		request.onsuccess = () => {
-			resolve(request.result || null);
+		const transaction = db.transaction(['providers', 'models'], 'readonly');
+		const providerStore = transaction.objectStore('providers');
+		const modelStore = transaction.objectStore('models');
+
+		const providerRequest = providerStore.get(providerId);
+
+		providerRequest.onsuccess = () => {
+			const provider = providerRequest.result;
+			if (!provider) {
+				resolve(null);
+				return;
+			}
+
+			const modelIndex = modelStore.index('providerId');
+			const modelsRequest = modelIndex.getAll(providerId);
+
+			modelsRequest.onsuccess = () => {
+				provider.models = modelsRequest.result;
+				resolve(provider);
+			};
 		};
-		request.onerror = (event) => reject(event.target.error);
+		transaction.onerror = (event) => reject(event.target.error);
 	});
 };
 
@@ -90,7 +105,9 @@ window.updateProvider = function (providerId, providerData) {
 		if (!db) return reject('DB not initialized');
 		const transaction = db.transaction(['providers'], 'readwrite');
 		const store = transaction.objectStore('providers');
-		const request = store.put(providerData);
+		const dataToStore = { ...providerData };
+		delete dataToStore.models; // Models are managed in their own store
+		const request = store.put(dataToStore);
 		request.onsuccess = () => resolve(providerData);
 		request.onerror = (event) => reject(event.target.error);
 	});
@@ -99,11 +116,25 @@ window.updateProvider = function (providerId, providerData) {
 window.deleteProvider = function (providerId) {
 	return new Promise((resolve, reject) => {
 		if (!db) return reject('DB not initialized');
-		const transaction = db.transaction(['providers'], 'readwrite');
-		const store = transaction.objectStore('providers');
-		const request = store.delete(providerId);
-		request.onsuccess = () => resolve(providerId);
-		request.onerror = (event) => reject(event.target.error);
+		const transaction = db.transaction(['providers', 'models'], 'readwrite');
+		const providerStore = transaction.objectStore('providers');
+		const modelStore = transaction.objectStore('models');
+
+		providerStore.delete(providerId);
+
+		const modelIndex = modelStore.index('providerId');
+		const modelsRequest = modelIndex.openCursor(providerId);
+
+		modelsRequest.onsuccess = () => {
+			const cursor = modelsRequest.result;
+			if (cursor) {
+				modelStore.delete(cursor.primaryKey);
+				cursor.continue();
+			}
+		};
+
+		transaction.oncomplete = () => resolve(providerId);
+		transaction.onerror = (event) => reject(event.target.error);
 	});
 };
 // validateProviderData returns true if providerData is a proper config.RPChat.AIProvider object.
@@ -123,59 +154,38 @@ function validateProviderData(providerData) {
 	return true;
 }
 
-	
-
 // TODO Revise createModel. It should read the provider object, append the model
 // data to the models array, then update the provider.
 window.createModel = function (providerId, modelData) {
 	return new Promise((resolve, reject) => {
 		if (!validateModelData(modelData)) {
-			return reject({
-				reason: 'Invalid model data',
-				data: modelData
-			});
+			return Promise.reject({reason: 'Invalid model data', data: modelData});
 		}
 		if (!db) return reject('DB not initialized');
-
-		const transaction = db.transaction(['providers'], 'readwrite');
-		const store = transaction.objectStore('providers');
-		const providerRequest = store.get(providerId);
-
-		providerRequest.onerror = event => reject(event.target.error);
-		providerRequest.onsuccess = () => {
-			const provider = providerRequest.result;
-			if (!provider) {
-				return reject(`Provider with id '${providerId}' not found.`);
-			}
-
-			if (!Array.isArray(provider.models)) {
-				provider.models = [];
-			}
-
-			if (provider.models.some(m => m.id === modelData.id)) {
-				return reject(`Model with id '${modelData.id}' already exists for this provider.`);
-			}
-
-			provider.models.push(modelData);
-
-			const updateRequest = store.put(provider);
-			updateRequest.onerror = event => reject(event.target.error);
-			updateRequest.onsuccess = () => resolve(modelData);
-		};
+		const transaction = db.transaction(['models'], 'readwrite');
+		const store = transaction.objectStore('models');
+		const dataToAdd = { ...modelData, providerId: providerId };
+		const request = store.add(dataToAdd);
+		request.onsuccess = () => resolve(dataToAdd);
+		request.onerror = (event) => reject(event.target.error);
 	});
 };
 
 window.readModel = function (providerId, modelId) {
 	return new Promise((resolve, reject) => {
 		if (!db) return reject('DB not initialized');
-		window.readProvider(providerId).then(provider => {
-			if (provider && Array.isArray(provider.models)) {
-				const model = provider.models.find(m => m.id === modelId);
-				resolve(model || null);
+		const transaction = db.transaction(['models'], 'readonly');
+		const store = transaction.objectStore('models');
+		const request = store.get(modelId);
+		request.onsuccess = () => {
+			const model = request.result;
+			if (model && model.providerId === providerId) {
+				resolve(model);
 			} else {
 				resolve(null);
 			}
-		}).catch(reject);
+		};
+		request.onerror = (event) => reject(event.target.error);
 	});
 };
 
@@ -185,64 +195,35 @@ window.updateModel = function (providerId, modelId, modelData) {
 	}
 	return new Promise((resolve, reject) => {
 		if (!db) return reject('DB not initialized');
-		const transaction = db.transaction(['providers'], 'readwrite');
-		const store = transaction.objectStore('providers');
-		const providerRequest = store.get(providerId);
-
-		providerRequest.onerror = event => reject(event.target.error);
-		providerRequest.onsuccess = () => {
-			const provider = providerRequest.result;
-			if (!provider) {
-				return reject(`Provider with id '${providerId}' not found.`);
-			}
-
-			if (!Array.isArray(provider.models)) {
-				return reject(`Provider with id '${providerId}' has no models array.`);
-			}
-
-			const modelIndex = provider.models.findIndex(m => m.id === modelId);
-			if (modelIndex === -1) {
-				return reject(`Model with id '${modelId}' not found for this provider.`);
-			}
-
-			provider.models[modelIndex] = modelData;
-
-			const updateRequest = store.put(provider);
-			updateRequest.onerror = event => reject(event.target.error);
-			updateRequest.onsuccess = () => resolve(modelData);
-		};
+		const transaction = db.transaction(['models'], 'readwrite');
+		const store = transaction.objectStore('models');
+		const dataToUpdate = { ...modelData, providerId: providerId };
+		const request = store.put(dataToUpdate);
+		request.onsuccess = () => resolve(dataToUpdate);
+		request.onerror = (event) => reject(event.target.error);
 	});
 };
 
 window.deleteModel = function (providerId, modelId) {
 	return new Promise((resolve, reject) => {
 		if (!db) return reject('DB not initialized');
-		const transaction = db.transaction(['providers'], 'readwrite');
-		const store = transaction.objectStore('providers');
-		const providerRequest = store.get(providerId);
+		const transaction = db.transaction(['models'], 'readwrite');
+		const store = transaction.objectStore('models');
 
-		providerRequest.onerror = event => reject(event.target.error);
-		providerRequest.onsuccess = () => {
-			const provider = providerRequest.result;
-			if (!provider) {
-				return reject(`Provider with id '${providerId}' not found.`);
+		const getRequest = store.get(modelId);
+		getRequest.onsuccess = () => {
+			const model = getRequest.result;
+			if (model && model.providerId === providerId) {
+				const deleteRequest = store.delete(modelId);
+				deleteRequest.onsuccess = () => resolve(modelId);
+				deleteRequest.onerror = (event) => reject(event.target.error);
+			} else if (model) {
+				reject(`Model ${modelId} does not belong to provider ${providerId}`);
+			} else {
+				resolve(null); // Not found, but not an error for delete
 			}
-
-			if (!Array.isArray(provider.models)) {
-				return resolve(null);
-			}
-
-			const modelIndex = provider.models.findIndex(m => m.id === modelId);
-			if (modelIndex === -1) {
-				return resolve(null); // Not found, but not an error for delete
-			}
-
-			provider.models.splice(modelIndex, 1);
-
-			const updateRequest = store.put(provider);
-			updateRequest.onerror = event => reject(event.target.error);
-			updateRequest.onsuccess = () => resolve(modelId);
 		};
+		getRequest.onerror = (event) => reject(event.target.error);
 	});
 };
 
@@ -263,7 +244,7 @@ function validateModelData(modelData) {
 
 // Database management
 const DB_NAME = 'rpchatDB';
-const DB_VERSION = 2; // Using a simple integer for IndexedDB version
+const DB_VERSION = 1; // Using a simple integer for IndexedDB version
 let db;
 
 function initDB() {
@@ -280,13 +261,11 @@ function initDB() {
 				console.log('Created providers object store');
 			}
 
-			// Handle migration from version 1
-			if (event.oldVersion < 2) {
-				console.log('Upgrading database from version 1 to 2');
-				if (db.objectStoreNames.contains('models')) {
-					db.deleteObjectStore('models');
-					console.log('Deleted models object store');
-				}
+			// Create models object store
+			if (!db.objectStoreNames.contains('models')) {
+				const modelsStore = db.createObjectStore('models', { keyPath: 'id' });
+				modelsStore.createIndex('providerId', 'providerId', { unique: false });
+				console.log('Created models object store and providerId index');
 			}
 		};
 
