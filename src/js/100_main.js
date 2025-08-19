@@ -249,6 +249,7 @@ let db;
 
 function initDB() {
 	return new Promise((resolve, reject) => {
+		console.log('Opening database:', DB_NAME, 'version:', DB_VERSION);
 		const request = indexedDB.open(DB_NAME, DB_VERSION);
 
 		request.onupgradeneeded = (event) => {
@@ -278,6 +279,11 @@ function initDB() {
 		request.onerror = (event) => {
 			console.error('Database error:', event.target.error);
 			reject(event.target.error);
+		};
+		
+		request.onblocked = (event) => {
+			console.error('Database blocked - another connection may be open');
+			reject(new Error('Database blocked'));
 		};
 	});
 }
@@ -423,6 +429,217 @@ async function init() { // Load saved state from sessionStorage
 	};
 
 	console.log("Test function added! Run window.testPrepareApiMessagesForCharacter() in console to test.");
+	window.testProviderDBInterface = async function () {
+		console.log("=== Testing Provider DB Interface ===");
+		
+		try {
+			// 0. Save a copy of the DB
+			console.log("Step 0: Saving DB backup...");
+			const dbBackup = await backupDB();
+			console.log("DB backup completed");
+			
+			// 1. Delete and recreate the DB
+			console.log("Step 1: Recreating DB...");
+			await deleteDB();
+			await initDB();
+			console.log("DB recreated");
+			
+			let testResults = [];
+			
+			// 2. Loop over the Providers in RPChat.config.PROVIDERS
+			console.log("Step 2: Testing providers...");
+			for (const [providerId, originalProvider] of window.RPChat.config.PROVIDERS) {
+				console.log(`Testing provider: ${providerId}`);
+				
+				// Copy the provider and empty the models field
+				const providerCopy = { ...originalProvider };
+				const originalModels = [...providerCopy.models];
+				providerCopy.models = []; // Empty models for provider creation
+				
+				try {
+					// Create the provider in the DB using the copy
+					await window.createProvider(providerCopy);
+					console.log(`  Provider ${providerId} created`);
+					
+					// Create the models in the DB using the original provider's models
+					for (const model of originalModels) {
+						await window.createModel(providerId, model);
+					}
+					console.log(`  ${originalModels.length} models created for provider ${providerId}`);
+					
+					// 3. Read the provider from the DB
+					const readProvider = await window.readProvider(providerId);
+					if (!readProvider) {
+						throw new Error(`Failed to read provider ${providerId} from DB`);
+					}
+					
+					// Compare the read provider with the original
+					const comparison = compareProviders(originalProvider, readProvider);
+					testResults.push({
+						providerId,
+						success: comparison.success,
+						differences: comparison.differences
+					});
+					
+					if (comparison.success) {
+						console.log(`  ✅ Provider ${providerId} test PASSED`);
+					} else {
+						console.log(`  ❌ Provider ${providerId} test FAILED:`);
+						comparison.differences.forEach(diff => console.log(`    ${diff}`));
+					}
+					
+				} catch (error) {
+					console.error(`  ❌ Error testing provider ${providerId}:`, error);
+					testResults.push({
+						providerId,
+						success: false,
+						error: error.message
+					});
+				}
+			}
+			
+			// 4. Delete the DB
+			console.log("Step 4: Cleaning up test DB...");
+			await deleteDB();
+			
+			// 5. Restore DB from saved copy
+			console.log("Step 5: Restoring DB from backup...");
+			await restoreDB(dbBackup);
+			console.log("DB restored");
+			
+			// Report final results
+			const successCount = testResults.filter(r => r.success).length;
+			const totalCount = testResults.length;
+			
+			console.log("=== TEST RESULTS SUMMARY ===");
+			console.log(`Total providers tested: ${totalCount}`);
+			console.log(`Successful tests: ${successCount}`);
+			console.log(`Failed tests: ${totalCount - successCount}`);
+			
+			if (successCount === totalCount) {
+				console.log("🎉 ALL TESTS PASSED!");
+				return "✅ All provider DB interface tests passed!";
+			} else {
+				console.log("❌ Some tests failed. Check detailed results above.");
+				return `❌ ${totalCount - successCount} tests failed. Check console for details.`;
+			}
+			
+		} catch (error) {
+			console.error("❌ Test execution failed:", error);
+			return `❌ Test execution failed: ${error.message}`;
+		}
+	};
+
+	// Helper function to backup the entire database
+	async function backupDB() {
+		const backup = {
+			providers: [],
+			models: []
+		};
+		
+		return new Promise((resolve, reject) => {
+			const transaction = db.transaction(['providers', 'models'], 'readonly');
+			const providerStore = transaction.objectStore('providers');
+			const modelStore = transaction.objectStore('models');
+			
+			// Backup providers
+			const providerRequest = providerStore.getAll();
+			providerRequest.onsuccess = () => {
+				backup.providers = providerRequest.result;
+				
+				// Backup models
+				const modelRequest = modelStore.getAll();
+				modelRequest.onsuccess = () => {
+					backup.models = modelRequest.result;
+					resolve(backup);
+				};
+				modelRequest.onerror = () => reject(modelRequest.error);
+			};
+			providerRequest.onerror = () => reject(providerRequest.error);
+		});
+	}
+	
+	// Helper function to delete the database
+	async function deleteDB() {
+		return new Promise((resolve, reject) => {
+			if (db) {
+				db.close();
+			}
+			const deleteRequest = indexedDB.deleteDatabase(DB_NAME);
+			deleteRequest.onsuccess = () => resolve();
+			deleteRequest.onerror = () => reject(deleteRequest.error);
+		});
+	}
+	
+	// Helper function to restore database from backup
+	async function restoreDB(backup) {
+		// First ensure DB is initialized
+		await initDB();
+		
+		return new Promise((resolve, reject) => {
+			const transaction = db.transaction(['providers', 'models'], 'readwrite');
+			const providerStore = transaction.objectStore('providers');
+			const modelStore = transaction.objectStore('models');
+			
+			// Restore providers
+			for (const provider of backup.providers) {
+				providerStore.put(provider);
+			}
+			
+			// Restore models
+			for (const model of backup.models) {
+				modelStore.put(model);
+			}
+			
+			transaction.oncomplete = () => resolve();
+			transaction.onerror = () => reject(transaction.error);
+		});
+	}
+	
+	// Helper function to compare providers
+	function compareProviders(original, fromDB) {
+		const differences = [];
+		
+		// Check basic fields
+		const fieldsToCheck = ['id', 'displayName', 'apiFormat', 'endpoint'];
+		for (const field of fieldsToCheck) {
+			if (original[field] !== fromDB[field]) {
+				differences.push(`${field}: expected '${original[field]}', got '${fromDB[field]}'`);
+			}
+		}
+		
+		// Check models array
+		if (!Array.isArray(fromDB.models)) {
+			differences.push(`models: expected array, got ${typeof fromDB.models}`);
+		} else {
+			if (original.models.length !== fromDB.models.length) {
+				differences.push(`models length: expected ${original.models.length}, got ${fromDB.models.length}`);
+			} else {
+				// Sort both arrays by ID to ensure consistent comparison
+				const origModelsSorted = [...original.models].sort((a, b) => a.id.localeCompare(b.id));
+				const dbModelsSorted = [...fromDB.models].sort((a, b) => a.id.localeCompare(b.id));
+				
+				// Check each model
+				for (let i = 0; i < origModelsSorted.length; i++) {
+					const origModel = origModelsSorted[i];
+					const dbModel = dbModelsSorted[i];
+					
+					const modelFields = ['id', 'displayName', 'defaultTemperature'];
+					for (const field of modelFields) {
+						if (origModel[field] !== dbModel[field]) {
+							differences.push(`model '${origModel.id}' ${field}: expected '${origModel[field]}', got '${dbModel[field]}'`);
+						}
+					}
+				}
+			}
+		}
+		
+		return {
+			success: differences.length === 0,
+			differences
+		};
+	}
+	console.log("Test function added! Run window.testProviderDBInterface() in console to test.");
 
 	// Attach event listeners
 	attachEventListeners();
