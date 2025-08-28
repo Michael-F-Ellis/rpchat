@@ -43,11 +43,11 @@ def load_json_file(filepath):
 
 def escape_js_string(s):
     """Escape a string for use in JavaScript"""
-    return s.replace('\\', '\\\\').replace('`', '\`').replace('${', '\${')
+    return s.replace('\\', '\\\\').replace('`', r'`').replace('${', r'${')
 
 def generate_providers_js(providers_data):
     """Generate JavaScript code for providers configuration"""
-    provider_template = """				['{id}', new AIProvider(
+    provider_template = """\t\t\t['{id}', new AIProvider(
 					'{id}',
 					'{displayName}',
 					'{endpoint}',
@@ -85,7 +85,7 @@ def generate_providers_js(providers_data):
 
 def generate_system_prompts_js(system_prompts_data):
     """Generate JavaScript code for system prompts configuration"""
-    prompt_template = """				{{
+    prompt_template = """\t\t\t{{
 					name: '{name}',
 					content: `{content}`
 				}}"""
