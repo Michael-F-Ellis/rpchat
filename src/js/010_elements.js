@@ -13,6 +13,8 @@ const El = {
 	sendLabel: document.getElementById('send-label'),
 	headerToggle: document.getElementById('header-toggle'),
 	headerContent: document.getElementById('header-content'),
+	scrollTopBtn: document.getElementById('scroll-top'),
+	scrollBottomBtn: document.getElementById('scroll-bottom'),
 	// New elements for Markdown extraction
 	extractMdBtn: document.getElementById('extract-chat-md'),
 	extractMdModal: document.getElementById('extract-md-modal'),

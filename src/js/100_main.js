@@ -57,9 +57,9 @@ window.extractChatToMarkdown = function (assistant = true, user = true, system =
 // Provider and model management functions
 window.createProvider = function (providerData) {
 	return new Promise((resolve, reject) => {
-	    if (!validateProviderData(providerData)) {
-		    return Promise.reject({reason: 'Invalid provider data', data: providerData});
-	    }
+		if (!validateProviderData(providerData)) {
+			return Promise.reject({ reason: 'Invalid provider data', data: providerData });
+		}
 		if (!db) return reject('DB not initialized');
 		const transaction = db.transaction(['providers'], 'readwrite');
 		const store = transaction.objectStore('providers');
@@ -150,7 +150,7 @@ function validateProviderData(providerData) {
 	}
 	if (!Array.isArray(providerData.models)) {
 		return false;
-	}	
+	}
 	return true;
 }
 
@@ -159,7 +159,7 @@ function validateProviderData(providerData) {
 window.createModel = function (providerId, modelData) {
 	return new Promise((resolve, reject) => {
 		if (!validateModelData(modelData)) {
-			return Promise.reject({reason: 'Invalid model data', data: modelData});
+			return Promise.reject({ reason: 'Invalid model data', data: modelData });
 		}
 		if (!db) return reject('DB not initialized');
 		const transaction = db.transaction(['models'], 'readwrite');
@@ -280,7 +280,7 @@ function initDB() {
 			console.error('Database error:', event.target.error);
 			reject(event.target.error);
 		};
-		
+
 		request.onblocked = (event) => {
 			console.error('Database blocked - another connection may be open');
 			reject(new Error('Database blocked'));
@@ -306,48 +306,48 @@ async function init() { // Load saved state from sessionStorage
 
 	window.testProviderDBInterface = async function () {
 		console.log("=== Testing Provider DB Interface ===");
-		
+
 		try {
 			// 0. Save a copy of the DB
 			console.log("Step 0: Saving DB backup...");
 			const dbBackup = await backupDB();
 			console.log("DB backup completed");
-			
+
 			// 1. Delete and recreate the DB
 			console.log("Step 1: Recreating DB...");
 			await deleteDB();
 			await initDB();
 			console.log("DB recreated");
-			
+
 			let testResults = [];
-			
+
 			// 2. Loop over the Providers in RPChat.config.PROVIDERS
 			console.log("Step 2: Testing providers...");
 			for (const [providerId, originalProvider] of window.RPChat.config.PROVIDERS) {
 				console.log(`Testing provider: ${providerId}`);
-				
+
 				// Copy the provider and empty the models field
 				const providerCopy = { ...originalProvider };
 				const originalModels = [...providerCopy.models];
 				providerCopy.models = []; // Empty models for provider creation
-				
+
 				try {
 					// Create the provider in the DB using the copy
 					await window.createProvider(providerCopy);
 					console.log(`  Provider ${providerId} created`);
-					
+
 					// Create the models in the DB using the original provider's models
 					for (const model of originalModels) {
 						await window.createModel(providerId, model);
 					}
 					console.log(`  ${originalModels.length} models created for provider ${providerId}`);
-					
+
 					// 3. Read the provider from the DB
 					const readProvider = await window.readProvider(providerId);
 					if (!readProvider) {
 						throw new Error(`Failed to read provider ${providerId} from DB`);
 					}
-					
+
 					// Compare the read provider with the original
 					const comparison = compareProviders(originalProvider, readProvider);
 					testResults.push({
@@ -355,14 +355,14 @@ async function init() { // Load saved state from sessionStorage
 						success: comparison.success,
 						differences: comparison.differences
 					});
-					
+
 					if (comparison.success) {
 						console.log(`  ✅ Provider ${providerId} test PASSED`);
 					} else {
 						console.log(`  ❌ Provider ${providerId} test FAILED:`);
 						comparison.differences.forEach(diff => console.log(`    ${diff}`));
 					}
-					
+
 				} catch (error) {
 					console.error(`  ❌ Error testing provider ${providerId}:`, error);
 					testResults.push({
@@ -372,25 +372,25 @@ async function init() { // Load saved state from sessionStorage
 					});
 				}
 			}
-			
+
 			// 4. Delete the DB
 			console.log("Step 4: Cleaning up test DB...");
 			await deleteDB();
-			
+
 			// 5. Restore DB from saved copy
 			console.log("Step 5: Restoring DB from backup...");
 			await restoreDB(dbBackup);
 			console.log("DB restored");
-			
+
 			// Report final results
 			const successCount = testResults.filter(r => r.success).length;
 			const totalCount = testResults.length;
-			
+
 			console.log("=== TEST RESULTS SUMMARY ===");
 			console.log(`Total providers tested: ${totalCount}`);
 			console.log(`Successful tests: ${successCount}`);
 			console.log(`Failed tests: ${totalCount - successCount}`);
-			
+
 			if (successCount === totalCount) {
 				console.log("🎉 ALL TESTS PASSED!");
 				return "✅ All provider DB interface tests passed!";
@@ -398,7 +398,7 @@ async function init() { // Load saved state from sessionStorage
 				console.log("❌ Some tests failed. Check detailed results above.");
 				return `❌ ${totalCount - successCount} tests failed. Check console for details.`;
 			}
-			
+
 		} catch (error) {
 			console.error("❌ Test execution failed:", error);
 			return `❌ Test execution failed: ${error.message}`;
@@ -411,17 +411,17 @@ async function init() { // Load saved state from sessionStorage
 			providers: [],
 			models: []
 		};
-		
+
 		return new Promise((resolve, reject) => {
 			const transaction = db.transaction(['providers', 'models'], 'readonly');
 			const providerStore = transaction.objectStore('providers');
 			const modelStore = transaction.objectStore('models');
-			
+
 			// Backup providers
 			const providerRequest = providerStore.getAll();
 			providerRequest.onsuccess = () => {
 				backup.providers = providerRequest.result;
-				
+
 				// Backup models
 				const modelRequest = modelStore.getAll();
 				modelRequest.onsuccess = () => {
@@ -433,7 +433,7 @@ async function init() { // Load saved state from sessionStorage
 			providerRequest.onerror = () => reject(providerRequest.error);
 		});
 	}
-	
+
 	// Helper function to delete the database
 	async function deleteDB() {
 		return new Promise((resolve, reject) => {
@@ -445,36 +445,36 @@ async function init() { // Load saved state from sessionStorage
 			deleteRequest.onerror = () => reject(deleteRequest.error);
 		});
 	}
-	
+
 	// Helper function to restore database from backup
 	async function restoreDB(backup) {
 		// First ensure DB is initialized
 		await initDB();
-		
+
 		return new Promise((resolve, reject) => {
 			const transaction = db.transaction(['providers', 'models'], 'readwrite');
 			const providerStore = transaction.objectStore('providers');
 			const modelStore = transaction.objectStore('models');
-			
+
 			// Restore providers
 			for (const provider of backup.providers) {
 				providerStore.put(provider);
 			}
-			
+
 			// Restore models
 			for (const model of backup.models) {
 				modelStore.put(model);
 			}
-			
+
 			transaction.oncomplete = () => resolve();
 			transaction.onerror = () => reject(transaction.error);
 		});
 	}
-	
+
 	// Helper function to compare providers
 	function compareProviders(original, fromDB) {
 		const differences = [];
-		
+
 		// Check basic fields
 		const fieldsToCheck = ['id', 'displayName', 'apiFormat', 'endpoint'];
 		for (const field of fieldsToCheck) {
@@ -482,7 +482,7 @@ async function init() { // Load saved state from sessionStorage
 				differences.push(`${field}: expected '${original[field]}', got '${fromDB[field]}'`);
 			}
 		}
-		
+
 		// Check models array
 		if (!Array.isArray(fromDB.models)) {
 			differences.push(`models: expected array, got ${typeof fromDB.models}`);
@@ -493,12 +493,12 @@ async function init() { // Load saved state from sessionStorage
 				// Sort both arrays by ID to ensure consistent comparison
 				const origModelsSorted = [...original.models].sort((a, b) => a.id.localeCompare(b.id));
 				const dbModelsSorted = [...fromDB.models].sort((a, b) => a.id.localeCompare(b.id));
-				
+
 				// Check each model
 				for (let i = 0; i < origModelsSorted.length; i++) {
 					const origModel = origModelsSorted[i];
 					const dbModel = dbModelsSorted[i];
-					
+
 					const modelFields = ['id', 'displayName', 'defaultTemperature'];
 					for (const field of modelFields) {
 						if (origModel[field] !== dbModel[field]) {
@@ -508,7 +508,7 @@ async function init() { // Load saved state from sessionStorage
 				}
 			}
 		}
-		
+
 		return {
 			success: differences.length === 0,
 			differences
@@ -733,6 +733,18 @@ function attachEventListeners() {
 
 	// Clear chat
 	El.clearChatBtn.addEventListener('click', handleClearChat);
+
+	// Scroll buttons
+	if (El.scrollTopBtn) {
+		El.scrollTopBtn.addEventListener('click', () => {
+			window.scrollTo({ top: 0, behavior: 'smooth' });
+		});
+	}
+	if (El.scrollBottomBtn) {
+		El.scrollBottomBtn.addEventListener('click', () => {
+			window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+		});
+	}
 
 	// Add a mutation observer to detect changes to the chat container
 	// This helps update the send button state when edits start/end

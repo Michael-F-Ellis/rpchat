@@ -67,7 +67,13 @@ header {
 	font-size: 0.9rem;
 }
 
-.header-toggle {
+.header-actions {
+	display: flex;
+	gap: 0.5rem;
+	align-items: center;
+}
+
+.header-toggle, .header-icon-btn {
 	background: none;
 	border: none;
 	color: var(--light-color);
@@ -78,7 +84,7 @@ header {
 	transition: background-color 0.2s;
 }
 
-.header-toggle:hover {
+.header-toggle:hover, .header-icon-btn:hover {
 	background-color: rgba(255, 255, 255, 0.1);
 }
 
@@ -136,7 +142,7 @@ header {
 		font-size: 0.8rem;
 	}
 
-	.header-toggle {
+	.header-actions {
 		order: 2;
 		margin-left: auto;
 	}

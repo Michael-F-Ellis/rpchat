@@ -1,0 +1,111 @@
+# Page snapshot
+
+```yaml
+- generic [ref=e2]:
+  - banner [ref=e3]:
+    - generic [ref=e4]:
+      - heading "RPChat" [level=1] [ref=e5]
+      - paragraph [ref=e7]:
+        - text: v1.0.9
+        - link "Source code" [ref=e8] [cursor=pointer]:
+          - /url: https://github.com/michael-f-ellis/rpchat
+      - generic [ref=e9]:
+        - button "Scroll to top" [ref=e10] [cursor=pointer]: ▲
+        - button "Scroll to bottom" [ref=e11] [cursor=pointer]: ▼
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - text: "API Key:"
+        - generic [ref=e14]:
+          - textbox "API Key:" [ref=e15]:
+            - /placeholder: Enter API Key
+          - button "Save Key" [ref=e16] [cursor=pointer]
+      - generic [ref=e17]:
+        - text: "API Provider:"
+        - combobox "API Provider:" [ref=e18]:
+          - option "DeepSeek" [selected]
+          - option "Fireworks"
+          - option "Google Gemini"
+          - option "Together.ai"
+          - option "Z"
+      - generic [ref=e19]:
+        - text: "Model:"
+        - combobox "Model:" [ref=e20]:
+          - option "DeepSeek Chat" [selected]
+          - option "DeepSeek Reasoner"
+      - generic [ref=e21]:
+        - generic [ref=e22]: "Temperature:"
+        - spinbutton "Temperature:" [ref=e23]: "0.7"
+      - generic [ref=e24]:
+        - text: "System Prompt:"
+        - combobox "System Prompt:" [ref=e25]:
+          - option "First Person" [selected]
+          - option "Minimal"
+          - option "Third Person"
+  - generic [ref=e26]:
+    - button "▶️ Show System Prompt" [ref=e28] [cursor=pointer]
+    - generic [ref=e29]:
+      - generic [ref=e30]: "?"
+      - generic [ref=e31]:
+        - button "🖊️" [ref=e32] [cursor=pointer]
+        - button "⟲" [ref=e33] [cursor=pointer]
+    - generic [ref=e34]: Test message line 0
+    - generic [ref=e35]: Test message line 1
+    - generic [ref=e36]: Test message line 2
+    - generic [ref=e37]: Test message line 3
+    - generic [ref=e38]: Test message line 4
+    - generic [ref=e39]: Test message line 5
+    - generic [ref=e40]: Test message line 6
+    - generic [ref=e41]: Test message line 7
+    - generic [ref=e42]: Test message line 8
+    - generic [ref=e43]: Test message line 9
+    - generic [ref=e44]: Test message line 10
+    - generic [ref=e45]: Test message line 11
+    - generic [ref=e46]: Test message line 12
+    - generic [ref=e47]: Test message line 13
+    - generic [ref=e48]: Test message line 14
+    - generic [ref=e49]: Test message line 15
+    - generic [ref=e50]: Test message line 16
+    - generic [ref=e51]: Test message line 17
+    - generic [ref=e52]: Test message line 18
+    - generic [ref=e53]: Test message line 19
+    - generic [ref=e54]: Test message line 20
+    - generic [ref=e55]: Test message line 21
+    - generic [ref=e56]: Test message line 22
+    - generic [ref=e57]: Test message line 23
+    - generic [ref=e58]: Test message line 24
+    - generic [ref=e59]: Test message line 25
+    - generic [ref=e60]: Test message line 26
+    - generic [ref=e61]: Test message line 27
+    - generic [ref=e62]: Test message line 28
+    - generic [ref=e63]: Test message line 29
+    - generic [ref=e64]: Test message line 30
+    - generic [ref=e65]: Test message line 31
+    - generic [ref=e66]: Test message line 32
+    - generic [ref=e67]: Test message line 33
+    - generic [ref=e68]: Test message line 34
+    - generic [ref=e69]: Test message line 35
+    - generic [ref=e70]: Test message line 36
+    - generic [ref=e71]: Test message line 37
+    - generic [ref=e72]: Test message line 38
+    - generic [ref=e73]: Test message line 39
+    - generic [ref=e74]: Test message line 40
+    - generic [ref=e75]: Test message line 41
+    - generic [ref=e76]: Test message line 42
+    - generic [ref=e77]: Test message line 43
+    - generic [ref=e78]: Test message line 44
+    - generic [ref=e79]: Test message line 45
+    - generic [ref=e80]: Test message line 46
+    - generic [ref=e81]: Test message line 47
+    - generic [ref=e82]: Test message line 48
+    - generic [ref=e83]: Test message line 49
+  - generic [ref=e84]: Application initialized
+  - contentinfo [ref=e85]:
+    - generic [ref=e86]:
+      - button "Clear" [ref=e87] [cursor=pointer]
+      - button "Export" [ref=e88] [cursor=pointer]
+      - button "Import" [ref=e89] [cursor=pointer]
+      - button "Extract" [ref=e90] [cursor=pointer]
+    - generic [ref=e91]:
+      - text: Ready
+      - button "Ready" [ref=e92] [cursor=pointer]: Send
+```
