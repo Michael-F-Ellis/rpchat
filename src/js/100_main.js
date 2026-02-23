@@ -737,12 +737,16 @@ function attachEventListeners() {
 	// Scroll buttons
 	if (El.scrollTopBtn) {
 		El.scrollTopBtn.addEventListener('click', () => {
-			window.scrollTo({ top: 0, behavior: 'smooth' });
+			if (El.chatContainer) {
+				El.chatContainer.scrollTo({ top: 0, behavior: 'smooth' });
+			}
 		});
 	}
 	if (El.scrollBottomBtn) {
 		El.scrollBottomBtn.addEventListener('click', () => {
-			window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+			if (El.chatContainer) {
+				El.chatContainer.scrollTo({ top: El.chatContainer.scrollHeight, behavior: 'smooth' });
+			}
 		});
 	}
 

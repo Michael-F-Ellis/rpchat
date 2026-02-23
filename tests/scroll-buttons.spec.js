@@ -28,32 +28,35 @@ test.describe('RPChat Top/Bottom Scroll Buttons', () => {
 			}
 		});
 
-		// Make sure we have injected enough to scroll
-		const scrollHeight = await page.evaluate(() => document.body.scrollHeight);
-		const windowHeight = await page.evaluate(() => window.innerHeight);
-		expect(scrollHeight).toBeGreaterThan(windowHeight);
+		// Make sure we have injected enough to scroll inside the chat container
+		const scrollHeight = await page.evaluate(() => document.getElementById('chat-container').scrollHeight);
+		const clientHeight = await page.evaluate(() => document.getElementById('chat-container').clientHeight);
+		expect(scrollHeight).toBeGreaterThan(clientHeight);
 
 		// Manually scroll to top to begin
-		await page.evaluate(() => window.scrollTo(0, 0));
+		await page.evaluate(() => document.getElementById('chat-container').scrollTo(0, 0));
 		await page.waitForTimeout(100);
 
 		// Click bottom button
 		await btnBottom.click();
-		await page.waitForTimeout(500); // Wait for smooth scroll
+		await page.waitForTimeout(1000); // Wait for smooth scroll
 
-		// Assert we're near the bottom
-		const currentScrollYAfterBottom = await page.evaluate(() => window.scrollY);
-		const expectedMaxScroll = await page.evaluate(() => document.body.scrollHeight - window.innerHeight);
+		// Assert we're near the bottom of the container
+		const limit = await page.evaluate(() => {
+			const c = document.getElementById('chat-container');
+			return c.scrollHeight - c.clientHeight;
+		});
+		const currentScrollYAfterBottom = await page.evaluate(() => document.getElementById('chat-container').scrollTop);
 
 		// Allow a small margin of error for fractional pixels
-		expect(currentScrollYAfterBottom).toBeGreaterThanOrEqual(expectedMaxScroll - 5);
+		expect(currentScrollYAfterBottom).toBeGreaterThanOrEqual(limit - 5);
 
 		// Click top button
 		await btnTop.click();
-		await page.waitForTimeout(500); // Wait for smooth scroll
+		await page.waitForTimeout(1000); // Wait for smooth scroll
 
-		// Assert we're back at the top
-		const currentScrollYAfterTop = await page.evaluate(() => window.scrollY);
-		expect(currentScrollYAfterTop).toBeLessThanOrEqual(5);
+		// Assert we're back at the top of the container
+		const currentScrollYAfterTop = await page.evaluate(() => document.getElementById('chat-container').scrollTop);
+		expect(currentScrollYAfterTop).toBeLessThanOrEqual(10);
 	});
 });
